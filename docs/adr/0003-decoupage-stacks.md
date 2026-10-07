@@ -17,6 +17,8 @@ Les ressources n'ont pas le même cycle de vie : le state et le budget existent 
 
 State S3 avec verrouillage natif (`use_lockfile`), une clé par stack et par env, `stage` en préfixe des noms.
 
+Bucket de state : **un par compte**, nommé `election-parents-tfstate-<accountId>` (unicité mondiale, ID lu par data source). Le stage est porté par la clé : `<stage>/<stack>.tfstate` (ex. `dev/bootstrap.tfstate`). Pas de multi-comptes pendant le projet : AWS Organizations ferait expirer les crédits du Free plan. Le jour du passage en multi-comptes, chaque compte aura son bucket sans renommage.
+
 ## Conséquences
 - Ordre de déploiement : data → network → app ; destruction dans l'ordre inverse, bootstrap en dernier.
 - Un output de data consommé par app ne doit pas changer sans coordination (panne du bloc 4).
