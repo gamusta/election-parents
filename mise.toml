@@ -4,5 +4,4 @@ pnpm = "12.9.1"
 terraform = "1.16.5"
 
 [env]
-AWS_PROFILE = "fil-rouge"
 AWS_REGION = "eu-west-1"

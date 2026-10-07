@@ -17,7 +17,7 @@ import { IamRolePolicy } from "@cdktn/provider-aws/lib/iam-role-policy";
 
 export interface BootstrapStackProps {
   stage: string;
-  githubRepo: string;
+  githubSubPrefix: string;
 }
 
 export class BootstrapStack extends TerraformStack {
@@ -57,8 +57,8 @@ export class BootstrapStack extends TerraformStack {
               test: "StringEquals",
               variable: "token.actions.githubusercontent.com:sub",
               values: [
-                `repo:${props.githubRepo}:pull_request`,
-                `repo:${props.githubRepo}:ref:refs/heads/main`,
+                `repo:${props.githubSubPrefix}:pull_request`,
+                `repo:${props.githubSubPrefix}:ref:refs/heads/main`,
               ],
             },
           ],
