@@ -4,8 +4,7 @@
   "projectId": "1242d575-70b1-4d21-942d-671709d7ce18",
   "sendCrashReports": "false",
   "targetVersions": {
-    "terraform": ">=1.5.7",
-    "opentofu": ">=1.6.0"
+    "terraform": ">=1.10.0"
   },
   "terraformProviders": [],
   "terraformModules": [],
