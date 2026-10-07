@@ -12,12 +12,10 @@
     "compile": "tsc --pretty",
     "watch": "tsc -w",
     "test": "jest",
-    "test:watch": "jest --watch",
-    "upgrade": "npm i cdktn@latest cdktn-cli@latest",
-    "upgrade:next": "npm i cdktn@next cdktn-cli@next"
+    "test:watch": "jest --watch"
   },
   "engines": {
-    "node": ">=22.0"
+    "node": ">=24.0"
   },
   "dependencies": {
     "@cdktn/provider-aws": "25.7.0",

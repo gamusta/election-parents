@@ -1,0 +1,31 @@
+name: plan
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write   # required to request the OIDC token
+  contents: read
+
+concurrency:
+  group: plan-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    env:
+      STAGE: dev
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec cdktn diff dev-bootstrap
+        working-directory: infra

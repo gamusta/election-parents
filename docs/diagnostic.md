@@ -34,3 +34,17 @@ Chaque fiche répond à 4 questions : qu'est-ce que je vois ? qui dit non ? où 
 - **Qui dit non :** S3, avec un **412 PreconditionFailed** : l'écriture conditionnelle de `<clé>.tflock` échoue car l'objet existe déjà (verrou détenu).
 - **Je regarde :** `Lock Info` dans l'erreur (ID, Who, Operation, Created) ; `aws s3 ls s3://<bucket>/<stage>/` (présence du `.tflock`).
 - **Je répare :** détenteur vivant → attendre qu'il finisse ; détenteur mort (Ctrl-C, runner annulé) → vérifier qu'il ne tourne plus, puis `terraform force-unlock <ID>`. Jamais de force-unlock « pour voir ».
+
+## Bloc 1 — modification dans la console (drift)
+- **Je vois :** un plan `~ update in-place` alors que je n'ai pas touché au code. Ici : `limit_amount = "35.0" -> "50"`, **plus** des attributs que je n'avais pas modifiés (`filter_expression`, `metrics`, `billing_view_arn`).
+- **Qui dit non / qui gagne :** personne ne refuse : Terraform relit AWS au plan, constate l'écart avec le code, et propose de ramener AWS au code. À gauche de `->` = réalité AWS ; à droite = le code.
+- **Je regarde :** le plan (valeurs à gauche de `->`) ; la valeur réelle via la CLI (`aws budgets describe-budget …`).
+- **Je répare :** décider qui a raison. Le code → `deploy`, puis re-`diff` (doit afficher `No changes`, sinon diff perpétuel). La console → reporter la valeur dans le code.
+- **Piège :** la console peut réécrire des attributs non touchés (ici : `cost_types` converti en `filter_expression`). Aligner le code sur le format que la console produit.
+
+## Bloc 1 — plan OK, apply refusé (`400 InvalidParameterException`)
+- **Je vois :** `Metrics cannot be used alongside Cost Filters and/or Cost Types` à l'apply, alors que le plan était propre.
+- **Qui dit non :** l'API AWS Budgets (400). Le plan ne connaît pas les règles métier de l'API.
+- **Je regarde :** le message d'erreur de l'API ; l'état réel (`aws budgets describe-budget …`) : `cost_types` toujours présent.
+- **Je répare :** retirer un attribut *Optional + Computed* du code ne le supprime pas côté AWS. Recréer la ressource : `terraform apply -replace=<adresse>` (plan en `-/+`).
+- **À retenir :** `~` = même ressource modifiée ; `-/+` = détruite puis recréée (attribut immuable ou `-replace`) → danger pour tout ce qui porte des données.
