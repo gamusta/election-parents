@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+crash.log
+crash.*.log
+
+# cdktn synth output (confirm name after init)
+# cdktn.out/
+
+# Env
+.env
+.env.*
+!.env.example
