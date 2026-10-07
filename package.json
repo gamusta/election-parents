@@ -1,5 +1,10 @@
 {
-  "devDependencies": {
-    "@biomejs/biome": "^2.5.15"
+  "name": "fil-rouge",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "test": "pnpm -r --if-present test"
   }
 }
