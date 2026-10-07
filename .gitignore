@@ -12,8 +12,10 @@ coverage/
 tfplan
 crash.log
 crash.*.log
-cdktf.out/
-cdktn.out/
+**/cdktf.out/*
+!**/cdktf.out/stacks/
+**/cdktf.out/stacks/*/*
+!**/cdktf.out/stacks/*/.terraform.lock.hcl
 .gen/
 # NE PAS ignorer .terraform.lock.hcl : il épingle les hash des providers (à commiter)
 
