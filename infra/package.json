@@ -1,34 +1,34 @@
 {
-  "name": "infra",
-  "version": "1.0.0",
-  "main": "main.js",
-  "types": "main.ts",
-  "license": "MPL-2.0",
-  "private": true,
-  "scripts": {
-    "get": "cdktn get",
-    "build": "tsc",
-    "synth": "cdktn synth",
-    "compile": "tsc --pretty",
-    "watch": "tsc -w",
-    "test": "jest",
-    "test:watch": "jest --watch"
-  },
-  "engines": {
-    "node": ">=24.0"
-  },
-  "dependencies": {
-    "@cdktn/provider-aws": "25.7.0",
-    "cdktn": "^0.24.0",
-    "constructs": ">=10.6.0 <10.8.0"
-  },
-  "devDependencies": {
-    "@types/jest": "^30.0.0",
-    "@types/node": "^24.19.1",
-    "cdktn-cli": "0.24.0",
-    "jest": "^30.5.2",
-    "ts-jest": "^29.4.14",
-    "tsx": "^4.23.15",
-    "typescript": "^5.9.3"
-  }
+	"name": "infra",
+	"version": "1.0.0",
+	"main": "main.js",
+	"types": "main.ts",
+	"license": "MPL-2.0",
+	"private": true,
+	"scripts": {
+		"get": "cdktn get",
+		"build": "tsc",
+		"synth": "cdktn synth",
+		"compile": "tsc --pretty",
+		"watch": "tsc -w",
+		"test": "jest",
+		"test:watch": "jest --watch"
+	},
+	"engines": {
+		"node": ">=24.0"
+	},
+	"dependencies": {
+		"@cdktn/provider-aws": "25.7.0",
+		"cdktn": "^0.24.0",
+		"constructs": ">=10.6.0 <10.8.0"
+	},
+	"devDependencies": {
+		"@types/jest": "^30.0.0",
+		"@types/node": "^24.19.1",
+		"cdktn-cli": "0.24.0",
+		"jest": "^30.5.2",
+		"ts-jest": "^29.4.14",
+		"tsx": "^4.23.15",
+		"typescript": "^5.9.3"
+	}
 }

@@ -1,15 +1,15 @@
 {
-  "language": "typescript",
-  "app": "pnpm exec tsx main.ts",
-  "projectId": "1242d575-70b1-4d21-942d-671709d7ce18",
-  "sendCrashReports": "false",
-  "targetVersions": {
-    "terraform": ">=1.10.0"
-  },
-  "terraformProviders": [],
-  "terraformModules": [],
-  "context": {
-    "failOnConstructsOutsideOfStacks": "true",
-    "canonicalAssetHashes": "true"
-  }
+	"language": "typescript",
+	"app": "pnpm exec tsx main.ts",
+	"projectId": "1242d575-70b1-4d21-942d-671709d7ce18",
+	"sendCrashReports": "false",
+	"targetVersions": {
+		"terraform": ">=1.10.0"
+	},
+	"terraformProviders": [],
+	"terraformModules": [],
+	"context": {
+		"failOnConstructsOutsideOfStacks": "true",
+		"canonicalAssetHashes": "true"
+	}
 }
