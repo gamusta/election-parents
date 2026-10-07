@@ -98,6 +98,8 @@ export class BootstrapStack extends TerraformStack {
     
     new TerraformOutput(this, "ci_plan_role_arn", { value: ciPlanRole.arn });
 
+    new TerraformOutput(this, "github_oidc_provider_arn", { value: githubOidc.arn });
+
     new S3Backend(this, {
       bucket: stateBucketName,
       key: `${props.stage}/bootstrap.tfstate`,
