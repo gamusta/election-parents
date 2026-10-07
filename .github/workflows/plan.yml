@@ -18,7 +18,7 @@ jobs:
     env:
       STAGE: dev
       TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
-      TF_VAR_alert_email: gamusta@gmail.com #provisoir, gihub secrets ko
+      TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
