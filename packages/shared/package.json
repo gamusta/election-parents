@@ -1,18 +1,18 @@
 {
-  "name": "@election/shared",
-  "scripts": {
-    "typecheck": "tsc --noEmit"
-  },
-  "license": "ISC",
-  "type": "module",
-  "private": true,
-  "exports": {
-    ".": "./src/index.ts"
-  },
-  "dependencies": {
-    "zod": "^4.6.5"
-  },
-  "devDependencies": {
-    "typescript": "^7.0.2"
-  }
+	"name": "@election/shared",
+	"scripts": {
+		"typecheck": "tsc --noEmit"
+	},
+	"license": "ISC",
+	"type": "module",
+	"private": true,
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"zod": "^4.6.5"
+	},
+	"devDependencies": {
+		"typescript": "^7.0.2"
+	}
 }
