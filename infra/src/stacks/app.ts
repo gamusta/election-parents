@@ -7,6 +7,7 @@ import { ApiGatewayMethodSettings } from "@cdktn/provider-aws/lib/api-gateway-me
 import { ApiGatewayResource } from "@cdktn/provider-aws/lib/api-gateway-resource";
 import { ApiGatewayRestApi } from "@cdktn/provider-aws/lib/api-gateway-rest-api";
 import { ApiGatewayStage } from "@cdktn/provider-aws/lib/api-gateway-stage";
+import { CloudwatchLogGroup } from "@cdktn/provider-aws/lib/cloudwatch-log-group";
 import { LambdaPermission } from "@cdktn/provider-aws/lib/lambda-permission";
 import { AwsProvider } from "@cdktn/provider-aws/lib/provider";
 import { Fn, S3Backend, TerraformOutput, TerraformStack } from "cdktn";
@@ -26,6 +27,11 @@ export class AppStack extends TerraformStack {
 		if (!stateBucketName) {
 			throw new Error("TF_STATE_BUCKET is not set");
 		}
+
+		const accessLogs = new CloudwatchLogGroup(this, "api_access_logs", {
+			name: `/aws/apigateway/${props.stage}-api`,
+			retentionInDays: 7,
+		});
 
 		const distDir = resolve(__dirname, "../../../apps/api/dist");
 		const manifestPath = resolve(distDir, "manifest.json");
@@ -99,6 +105,27 @@ export class AppStack extends TerraformStack {
 			restApiId: api.id,
 			deploymentId: deployment.id,
 			stageName: props.stage,
+			accessLogSettings: {
+				destinationArn: accessLogs.arn,
+				format: JSON.stringify({
+					requestId: "$context.requestId",
+					requestTime: "$context.requestTime",
+					httpMethod: "$context.httpMethod",
+					resourcePath: "$context.resourcePath",
+					status: "$context.status",
+					responseLatency: "$context.responseLatency",
+					integrationStatus: "$context.integration.status",
+					integrationLatency: "$context.integration.latency",
+					errorType: "$context.error.responseType",
+					errorMessage: "$context.error.message",
+					integrationError: "$context.integration.error",
+				}),
+			},
+		});
+
+		const execLogs = new CloudwatchLogGroup(this, "api_execution_logs", {
+			name: `API-Gateway-Execution-Logs_${api.id}/${props.stage}`,
+			retentionInDays: 7,
 		});
 
 		new ApiGatewayMethodSettings(this, "api_throttling", {
@@ -108,7 +135,11 @@ export class AppStack extends TerraformStack {
 			settings: {
 				throttlingBurstLimit: 10,
 				throttlingRateLimit: 5,
+				loggingLevel: "ERROR",
+				metricsEnabled: true,
+				dataTraceEnabled: false,
 			},
+			dependsOn: [execLogs],
 		});
 
 		new TerraformOutput(this, "api_url", {

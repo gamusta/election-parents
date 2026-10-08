@@ -1,3 +1,4 @@
+import { ApiGatewayAccount } from "@cdktn/provider-aws/lib/api-gateway-account";
 import { BudgetsBudget } from "@cdktn/provider-aws/lib/budgets-budget";
 import { DataAwsCallerIdentity } from "@cdktn/provider-aws/lib/data-aws-caller-identity";
 import { DataAwsIamPolicy } from "@cdktn/provider-aws/lib/data-aws-iam-policy";
@@ -39,6 +40,39 @@ export class BootstrapStack extends TerraformStack {
 		const stateBucket = new S3Bucket(this, "state_bucket", {
 			bucket: `election-parents-tfstate-${caller.accountId}`,
 			lifecycle: { preventDestroy: true },
+		});
+
+		const apigwLogsTrust = new DataAwsIamPolicyDocument(
+			this,
+			"apigw_logs_trust",
+			{
+				statement: [
+					{
+						actions: ["sts:AssumeRole"],
+						principals: [
+							{ type: "Service", identifiers: ["apigateway.amazonaws.com"] },
+						],
+					},
+				],
+			},
+		);
+
+		const apigwLogsRole = new IamRole(this, "apigw_logs_role", {
+			name: `${props.stage}-apigw-cloudwatch`,
+			assumeRolePolicy: apigwLogsTrust.json,
+		});
+
+		const apigwPushPolicy = new DataAwsIamPolicy(this, "apigw_push_logs", {
+			name: "AmazonAPIGatewayPushToCloudWatchLogs",
+		});
+
+		new IamRolePolicyAttachment(this, "apigw_logs_attach", {
+			role: apigwLogsRole.name,
+			policyArn: apigwPushPolicy.arn,
+		});
+
+		new ApiGatewayAccount(this, "apigw_account", {
+			cloudwatchRoleArn: apigwLogsRole.arn,
 		});
 
 		const githubOidc = new IamOpenidConnectProvider(this, "github_oidc", {
