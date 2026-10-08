@@ -1,4 +1,4 @@
-import { LabCpuWorkSchema } from "@election/shared";
+import { LabCpuWorkSchema, LabSleepMsSchema } from "@election/shared";
 import type { Context } from "aws-lambda";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { proxyEvent } from "../../http/proxy-event";
@@ -317,9 +317,42 @@ describe("GET /health lab mode (LAB_MODE=1)", () => {
 			expect(await getHealth()).not.toHaveProperty("cpuMs");
 		});
 	});
+
+	describe("?sleepMs (lab bound)", () => {
+		// Bounds checked on the schema only: never actually wait up to 40 s.
+		it.each(["0", "5001", "40000"])("schema accepts sleepMs=%s", (value) => {
+			expect(LabSleepMsSchema.safeParse(value).success).toBe(true);
+		});
+
+		it.each(["40001", "100000", "-1", "1.5", "", " ", "1e3", "0x10"])(
+			"schema rejects sleepMs=%j",
+			(value) => {
+				expect(LabSleepMsSchema.safeParse(value).success).toBe(false);
+			},
+		);
+
+		it("rejects sleepMs=40001 with 400 and leaves counters untouched", async () => {
+			const { app } = await import("./index");
+
+			const res = await app.request("/health?sleepMs=40001");
+
+			expect(res.status).toBe(400);
+			expect(await res.json()).toEqual({ error: "invalid_sleep_ms" });
+			expect((await getHealth()).invocation).toBe(1);
+		});
+	});
 });
 
 describe("GET /health without LAB_MODE", () => {
+	it("keeps the 5000 sleepMs cap (40000 is lab-only)", async () => {
+		const { app } = await import("./index");
+
+		const res = await app.request("/health?sleepMs=40000");
+
+		expect(res.status).toBe(400);
+		expect(await res.json()).toEqual({ error: "invalid_sleep_ms" });
+	});
+
 	it("ignores tag, bg and cpuWork, responding exactly as usual", async () => {
 		vi.useFakeTimers();
 		try {

@@ -25,3 +25,11 @@ export const LabCpuWorkSchema = z
 	.transform(Number)
 	.pipe(z.number().int().min(1).max(200_000));
 export type LabCpuWork = z.infer<typeof LabCpuWorkSchema>;
+
+// Lab 6: up to 40 s, past both the Lambda timeout and API Gateway's 29 s.
+export const LabSleepMsSchema = z
+	.string()
+	.regex(/^\d{1,5}$/)
+	.transform(Number)
+	.pipe(z.number().int().min(0).max(40_000));
+export type LabSleepMs = z.infer<typeof LabSleepMsSchema>;

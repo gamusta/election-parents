@@ -2,6 +2,7 @@ import { pbkdf2Sync, randomUUID } from "node:crypto";
 import {
 	LabBgSchema,
 	LabCpuWorkSchema,
+	LabSleepMsSchema,
 	LabTagSchema,
 	SleepMsSchema,
 } from "@election/shared";
@@ -31,7 +32,10 @@ export const app = createApp().get("/health", async (c) => {
 	const start = Date.now();
 	const rawSleepMs = c.req.query("sleepMs");
 	if (rawSleepMs !== undefined) {
-		const parsed = SleepMsSchema.safeParse(rawSleepMs);
+		// Lab 6: whichever fires first, Lambda timeout (502) or API Gateway's
+		// 29 s integration timeout (504, Lambda keeps running and billing).
+		const schema = labMode ? LabSleepMsSchema : SleepMsSchema;
+		const parsed = schema.safeParse(rawSleepMs);
 		if (!parsed.success) {
 			return c.json({ error: "invalid_sleep_ms" }, 400);
 		}
