@@ -35,12 +35,6 @@ export class AppStack extends TerraformStack {
 			manifest,
 		});
 
-        // One-shot: keep Terraform addresses after the move into the construct.
-        health.logGroup.moveFromId("aws_cloudwatch_log_group.health_log_group");
-        health.role.moveFromId("aws_iam_role.health_role");
-        health.rolePolicy.moveFromId("aws_iam_role_policy.health_logs_policy");
-        health.fn.moveFromId("aws_lambda_function.health_fn");
-        
 		new TerraformOutput(this, "health_function_name", {
 			value: health.fn.functionName,
 		});
