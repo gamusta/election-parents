@@ -8,11 +8,12 @@ type Health = {
 	envId: string;
 	invocation: number;
 	sinceInitMs: number;
+	durationMs: number;
 };
 
-const getHealth = async (): Promise<Health> => {
+const getHealth = async (query = ""): Promise<Health> => {
 	const { app } = await import("./index");
-	return (await app.request("/health")).json() as Promise<Health>;
+	return (await app.request(`/health${query}`)).json() as Promise<Health>;
 };
 
 // Spy is installed before each dynamic import, so INIT-time logs are captured.
@@ -83,5 +84,73 @@ describe("GET /health", () => {
 			coldStart: true,
 			invocation: 1,
 		});
+	});
+
+	it.each(["-1", "5001", "abc", "1.5", "", " ", "1e3", "0x10"])(
+		"rejects sleepMs=%j with 400 and leaves counters untouched",
+		async (value) => {
+			const { app } = await import("./index");
+
+			const res = await app.request(
+				`/health?sleepMs=${encodeURIComponent(value)}`,
+			);
+
+			expect(res.status).toBe(400);
+			expect(await res.json()).toEqual({ error: "invalid_sleep_ms" });
+			expect(await getHealth()).toMatchObject({
+				coldStart: true,
+				invocation: 1,
+			});
+		},
+	);
+
+	it.each(["0", "5000"])("accepts sleepMs=%s", async (value) => {
+		vi.useFakeTimers();
+		try {
+			const { app } = await import("./index");
+			const pending = app.request(`/health?sleepMs=${value}`);
+			await vi.advanceTimersByTimeAsync(Number(value));
+
+			expect((await pending).status).toBe(200);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("waits sleepMs before responding and reports durationMs", async () => {
+		vi.useFakeTimers();
+		try {
+			const { app } = await import("./index");
+			let settled = false;
+			const pending = Promise.resolve(app.request("/health?sleepMs=1000")).then(
+				(res) => {
+					settled = true;
+					return res;
+				},
+			);
+
+			await vi.advanceTimersByTimeAsync(999);
+			expect(settled).toBe(false);
+			await vi.advanceTimersByTimeAsync(1);
+			expect(settled).toBe(true);
+
+			expect(await (await pending).json()).toMatchObject({
+				status: "ok",
+				coldStart: true,
+				invocation: 1,
+				durationMs: 1000,
+			});
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("reports durationMs 0 without sleepMs", async () => {
+		vi.useFakeTimers();
+		try {
+			expect((await getHealth()).durationMs).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });

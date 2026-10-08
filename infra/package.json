@@ -1,5 +1,5 @@
 {
-	"name": "infra",
+	"name": "@election/infra",
 	"version": "1.0.0",
 	"main": "main.js",
 	"types": "main.ts",
