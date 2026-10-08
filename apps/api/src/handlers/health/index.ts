@@ -1,5 +1,10 @@
-import { randomUUID } from "node:crypto";
-import { LabBgSchema, LabTagSchema, SleepMsSchema } from "@election/shared";
+import { pbkdf2Sync, randomUUID } from "node:crypto";
+import {
+	LabBgSchema,
+	LabCpuWorkSchema,
+	LabTagSchema,
+	SleepMsSchema,
+} from "@election/shared";
 import { handle } from "@hono/aws-lambda";
 import { createApp } from "../../http/create-app";
 import { proxyEvent } from "../../http/proxy-event";
@@ -37,6 +42,7 @@ export const app = createApp().get("/health", async (c) => {
 	// Outside lab mode, tag/bg are ignored: no 400 that would reveal a hidden mode.
 	let tag: string | undefined;
 	let bg = false;
+	let cpuWork: number | undefined;
 	if (labMode) {
 		const rawTag = c.req.query("tag");
 		if (rawTag !== undefined) {
@@ -53,6 +59,23 @@ export const app = createApp().get("/health", async (c) => {
 			}
 			bg = true;
 		}
+		const rawCpuWork = c.req.query("cpuWork");
+		if (rawCpuWork !== undefined) {
+			const parsed = LabCpuWorkSchema.safeParse(rawCpuWork);
+			if (!parsed.success) {
+				return c.json({ error: "invalid_cpu_work" }, 400);
+			}
+			cpuWork = parsed.data;
+		}
+	}
+
+	// Lab 5: Lambda allocates CPU in proportion to memorySize (~1 vCPU at 1769 MB).
+	// Pure synchronous CPU work on the main thread, so cpuMs tracks the CPU share.
+	let cpuMs: number | undefined;
+	if (cpuWork !== undefined) {
+		const cpuStart = performance.now();
+		pbkdf2Sync("lab", "salt", cpuWork, 32, "sha256");
+		cpuMs = Math.round((performance.now() - cpuStart) * 100) / 100;
 	}
 
 	invocation++;
@@ -78,6 +101,7 @@ export const app = createApp().get("/health", async (c) => {
 		sinceInitMs: Date.now() - moduleInitTime,
 		durationMs: Date.now() - start,
 		...(tag !== undefined && { seenTags: [...seenTags] }),
+		...(cpuMs !== undefined && { cpuMs }),
 	};
 	coldStart = false;
 	return c.json(body);

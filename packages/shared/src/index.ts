@@ -17,3 +17,11 @@ export type LabTag = z.infer<typeof LabTagSchema>;
 
 export const LabBgSchema = z.literal("1");
 export type LabBg = z.infer<typeof LabBgSchema>;
+
+// Digits only, then 1–200000 PBKDF2 iterations of CPU work.
+export const LabCpuWorkSchema = z
+	.string()
+	.regex(/^\d{1,6}$/)
+	.transform(Number)
+	.pipe(z.number().int().min(1).max(200_000));
+export type LabCpuWork = z.infer<typeof LabCpuWorkSchema>;

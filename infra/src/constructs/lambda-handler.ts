@@ -22,6 +22,7 @@ export interface LambdaHandlerProps {
 	manifest: Manifest;
 	statements?: DataAwsIamPolicyDocumentStatement[];
 	environment?: Record<string, string>;
+	memorySize?: number
 }
 
 export class LambdaHandler extends Construct {
@@ -89,7 +90,7 @@ export class LambdaHandler extends Construct {
 			runtime: "nodejs24.x",
 			architectures: ["arm64"],
 			handler: artifact.handler,
-			memorySize: 256,
+			memorySize: props.memorySize,
 			timeout: 10,
 			filename: asset.path,
 			sourceCodeHash: artifact.sha256,

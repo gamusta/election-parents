@@ -78,3 +78,41 @@ Chaque fiche répond à 4 questions : qu'est-ce que je vois ? qui dit non ? où 
 - **Qui dit non :** _à compléter_
 - **Je regarde :** _à compléter_
 - **Je répare :** _à compléter_
+## Bloc 2 — 15 requêtes parallèles : 10 × 200, 5 × 500
+- **Je vois :** `500 {"message":"Internal server error"}` sur 5 requêtes ; aucun log ni `REPORT` côté Lambda pour ces 5 requêtes.
+- **Qui dit non :** Lambda, en throttling (429 `TooManyRequestsException`) : la concurrence du compte est de **10** (`ConcurrentExecutions`), partagée par toutes les fonctions. API Gateway reçoit ce 429 sur l'appel `Invoke` et renvoie au client un 500 générique (échec d'intégration).
+- **Je regarde :** `aws lambda get-account-settings --query AccountLimit` ; métrique `AWS/Lambda Throttles` ; access logs API Gateway (`integrationStatus` = 429). Aucun log Lambda = la requête n'est jamais arrivée dans la fonction.
+- **Je répare :** limiter à l'entrée de l'API : throttling du stage (`throttlingBurstLimit` ≤ concurrence Lambda, et `throttlingRateLimit` × durée d'une requête ≤ concurrence Lambda). API Gateway répond alors un vrai `429 Too Many Requests` sans appeler Lambda. Demander une augmentation du quota (Service Quotas) : prérequis de la reserved et de la provisioned concurrency.
+- **À retenir :** concurrence ≈ requêtes/s × durée (loi de Little). Le client ne peut pas distinguer un 500 de throttling d'un 500 de bug : seuls les logs et métriques le peuvent.
+
+## Bloc 2 — « je pensais avoir déployé » (config absente sur AWS)
+- **Je vois :** `LAB_MODE=1` présent dans `main`, absent de `get-function-configuration` ; le comportement du lab ne change pas.
+- **Qui dit non :** le verrou S3 du state. Un `deploy` interrompu par Ctrl-C a laissé `dev/app.tfstate.tflock` ; le deploy suivant a échoué (`Error acquiring the state lock`, 412) sans que je le remarque.
+- **Je regarde :** `aws lambda get-function-configuration --query '[LastModified, CodeSha256, Environment]'` comparé à `apps/api/dist/manifest.json` et à l'heure du commit ; `cdktn diff dev-app` ; `aws s3 ls s3://<bucket>/dev/`.
+- **Je répare :** vérifier que le détenteur du verrou ne tourne plus, `terraform force-unlock <ID>`, redéployer, puis `diff` → `No changes`.
+- **À retenir :** un déploiement n'est fait que si le plan suivant est vide. Jamais de Ctrl-C pendant un apply.
+
+## Bloc 2 — verrou orphelin après expiration des credentials
+- **Je vois :** `Error acquiring the state lock` au deploy suivant, alors qu'aucun autre deploy ne tourne.
+- **Qui dit non :** S3 (412). Le deploy précédent avait posé le verrou, puis attendu l'« approve » ; la session `aws login` a expiré pendant l'attente, le deploy a échoué sans pouvoir supprimer le `.tflock`.
+- **Je regarde :** `ps aux | grep -E "cdktn|terraform"` (aucun process vivant) ; `Lock Info` (ID, Who, Created) ; `aws s3 ls s3://<bucket>/dev/`.
+- **Je répare :** `cd infra/cdktf.out/stacks/dev-app && terraform force-unlock <ID>`, puis `cdktn diff` pour vérifier qu'aucun changement n'est parti à moitié.
+- **À retenir :** un deploy en attente de confirmation détient le verrou. Rafraîchir la session avant une opération longue ; lire le plan avec `diff`, appliquer ensuite.
+
+## Bloc 2 — mesures de durée très dispersées à petite mémoire
+- **Je vois :** même calcul (`cpuWork=100000`), même environnement : 157 à 268 ms à 128 Mo ; 21,4 à 21,9 ms à 1769 Mo.
+- **Qui dit non / qui gagne :** le bridage CPU (quota cgroup) : à petite mémoire, la fonction tourne à pleine vitesse par tranches, puis est suspendue jusqu'à la période suivante. La durée dépend de l'endroit où le calcul tombe dans ces périodes.
+- **Je regarde :** min / médiane / max sur 10 appels warm ; le **min** reflète la capacité CPU, la médiane le bridage.
+- **Je répare :** comparer des tailles sur le min et la médiane de plusieurs séries, jamais sur un appel isolé. Si la latence doit être stable, monter en mémoire.
+
+## Bloc 2 — choix de `memorySize` : la règle « Mo / 1769 » ne suffit pas
+- **Je vois :** la règle prévoyait un calcul 2 fois plus rapide à chaque doublement jusqu'à 1769 Mo. Mesuré : plafond déjà atteint vers 1024 Mo, et 3008 Mo plus rapide que 1769 malgré un calcul mono-thread.
+- **Qui dit non / qui gagne :** l'allocation CPU réelle n'est pas linéaire ; au-delà de 1769 Mo, le 2e vCPU absorbe probablement le travail de fond de V8 (GC, JIT) (hypothèse non profilée).
+- **Je regarde :** `billedDurationMs × memorySize` (coût relatif) pour chaque taille ; voir ADR-0006.
+- **Je répare :** mesurer chaque fonction avant de fixer `memorySize` (à la main ou avec AWS Lambda Power Tuning). Pour `health` : 1024 Mo.
+
+## Setup — script collé dans zsh : `number expected`, `sleep: invalid time interval`
+- **Je vois :** une fonction shell copiée-collée échoue sur des mots de ses commentaires.
+- **Qui dit non :** zsh : en mode interactif, `#` n'est pas un commentaire par défaut ; `(…)` est lu comme un *glob qualifier*.
+- **Je regarde :** les mots d'erreur correspondent au texte après `#`.
+- **Je répare :** `setopt interactivecomments` dans `~/.zshrc`.

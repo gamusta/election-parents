@@ -47,7 +47,9 @@ export class AppStack extends TerraformStack {
 			name: "health",
 			distDir,
 			manifest,
-			 ...(props.stage === "dev" && { environment: { LAB_MODE: "1" } }),
+			...(props.stage === "dev" && { environment: { LAB_MODE: "1" } }),
+			// Lab 5: 1024 MB is fastest per cost (see diagnostic sheet / ADR).
+			memorySize: 1024,
 		});
 
 		const api = new ApiGatewayRestApi(this, "api", {

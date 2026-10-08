@@ -1,3 +1,4 @@
+import { LabCpuWorkSchema } from "@election/shared";
 import type { Context } from "aws-lambda";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { proxyEvent } from "../../http/proxy-event";
@@ -10,6 +11,7 @@ type Health = {
 	sinceInitMs: number;
 	durationMs: number;
 	seenTags?: string[];
+	cpuMs?: number;
 };
 
 const getHealth = async (query = ""): Promise<Health> => {
@@ -277,19 +279,59 @@ describe("GET /health lab mode (LAB_MODE=1)", () => {
 			},
 		);
 	});
+
+	describe("?cpuWork", () => {
+		it.each(["0", "200001", "", " ", "abc", "1.5", "1e3", "0x10", "-1"])(
+			"rejects cpuWork=%j with 400 and leaves counters untouched",
+			async (value) => {
+				const { app } = await import("./index");
+
+				const res = await app.request(
+					`/health?cpuWork=${encodeURIComponent(value)}`,
+				);
+
+				expect(res.status).toBe(400);
+				expect(await res.json()).toEqual({ error: "invalid_cpu_work" });
+				expect((await getHealth()).invocation).toBe(1);
+			},
+		);
+
+		// Upper bound checked on the schema only: running 200000 iterations would
+		// cost ~300 ms per test run.
+		it.each(["1", "200000"])("schema accepts cpuWork=%s", (value) => {
+			expect(LabCpuWorkSchema.safeParse(value).success).toBe(true);
+		});
+
+		it.each(["1", "1000"])(
+			"runs cpuWork=%s and reports cpuMs",
+			async (value) => {
+				const body = await getHealth(`?cpuWork=${value}`);
+
+				expect(body).toMatchObject({ status: "ok", invocation: 1 });
+				expect(body.cpuMs).toBeTypeOf("number");
+				expect(body.cpuMs).toBeGreaterThanOrEqual(0);
+			},
+		);
+
+		it("omits cpuMs when no cpuWork is given", async () => {
+			expect(await getHealth()).not.toHaveProperty("cpuMs");
+		});
+	});
 });
 
 describe("GET /health without LAB_MODE", () => {
-	it("ignores tag and bg, responding exactly as usual", async () => {
+	it("ignores tag, bg and cpuWork, responding exactly as usual", async () => {
 		vi.useFakeTimers();
 		try {
 			const res = await (await import("./index")).app.request(
-				"/health?tag=a-b-invalid&bg=nope",
+				"/health?tag=a-b-invalid&bg=nope&cpuWork=0",
 			);
 			await vi.advanceTimersByTimeAsync(1000);
 
 			expect(res.status).toBe(200);
-			expect(await res.json()).not.toHaveProperty("seenTags");
+			const body = await res.json();
+			expect(body).not.toHaveProperty("seenTags");
+			expect(body).not.toHaveProperty("cpuMs");
 			expect(vi.getTimerCount()).toBe(0);
 			const logged = vi.mocked(console.log).mock.calls.flat().join("\n");
 			expect(logged).not.toContain("background_done");
