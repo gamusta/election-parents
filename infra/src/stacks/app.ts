@@ -47,6 +47,7 @@ export class AppStack extends TerraformStack {
 			name: "health",
 			distDir,
 			manifest,
+			 ...(props.stage === "dev" && { environment: { LAB_MODE: "1" } }),
 		});
 
 		const api = new ApiGatewayRestApi(this, "api", {

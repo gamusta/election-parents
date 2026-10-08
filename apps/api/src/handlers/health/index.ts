@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { SleepMsSchema } from "@election/shared";
+import { LabBgSchema, LabTagSchema, SleepMsSchema } from "@election/shared";
 import { handle } from "@hono/aws-lambda";
 import { createApp } from "../../http/create-app";
 import { proxyEvent } from "../../http/proxy-event";
@@ -9,6 +9,14 @@ const moduleInitTime = Date.now();
 const envId = randomUUID();
 let invocation = 0;
 let coldStart = true;
+
+// Read once at INIT: changing a Lambda env var publishes a new configuration
+// and AWS discards every existing environment, so it cannot change mid-life.
+const labMode = process.env.LAB_MODE === "1";
+// Lab 4: deliberately never cleared. Tags leak across requests and memory grows
+// until the environment is recycled — in prod, this pattern drives
+// maxMemoryUsed up to an out-of-memory error.
+const seenTags: string[] = [];
 
 // Global setTimeout (not node:timers/promises) so Vitest fake timers control it.
 const sleep = (ms: number) =>
@@ -26,7 +34,42 @@ export const app = createApp().get("/health", async (c) => {
 		await sleep(parsed.data);
 	}
 
+	// Outside lab mode, tag/bg are ignored: no 400 that would reveal a hidden mode.
+	let tag: string | undefined;
+	let bg = false;
+	if (labMode) {
+		const rawTag = c.req.query("tag");
+		if (rawTag !== undefined) {
+			const parsed = LabTagSchema.safeParse(rawTag);
+			if (!parsed.success) {
+				return c.json({ error: "invalid_tag" }, 400);
+			}
+			tag = parsed.data;
+		}
+		const rawBg = c.req.query("bg");
+		if (rawBg !== undefined) {
+			if (!LabBgSchema.safeParse(rawBg).success) {
+				return c.json({ error: "invalid_bg" }, 400);
+			}
+			bg = true;
+		}
+	}
+
 	invocation++;
+	if (bg) {
+		const startedAtInvocation = invocation;
+		// Not awaited: on Lambda the environment freezes after the response, so this
+		// fires during a later invocation (after thaw) — or never if it is recycled.
+		setTimeout(() => {
+			console.log(
+				JSON.stringify({ msg: "background_done", startedAtInvocation }),
+			);
+		}, 1000);
+	}
+	if (tag !== undefined) {
+		seenTags.push(tag);
+	}
+
 	const body = {
 		status: "ok",
 		coldStart,
@@ -34,6 +77,7 @@ export const app = createApp().get("/health", async (c) => {
 		invocation,
 		sinceInitMs: Date.now() - moduleInitTime,
 		durationMs: Date.now() - start,
+		...(tag !== undefined && { seenTags: [...seenTags] }),
 	};
 	coldStart = false;
 	return c.json(body);

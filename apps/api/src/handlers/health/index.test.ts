@@ -1,5 +1,5 @@
 import type { Context } from "aws-lambda";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { proxyEvent } from "../../http/proxy-event";
 
 type Health = {
@@ -9,6 +9,7 @@ type Health = {
 	invocation: number;
 	sinceInitMs: number;
 	durationMs: number;
+	seenTags?: string[];
 };
 
 const getHealth = async (query = ""): Promise<Health> => {
@@ -149,6 +150,149 @@ describe("GET /health", () => {
 		vi.useFakeTimers();
 		try {
 			expect((await getHealth()).durationMs).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+});
+
+describe("GET /health lab mode (LAB_MODE=1)", () => {
+	// Stubbed before each dynamic import: LAB_MODE is read once at INIT.
+	beforeEach(() => {
+		vi.stubEnv("LAB_MODE", "1");
+	});
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	const backgroundLogs = () =>
+		vi
+			.mocked(console.log)
+			.mock.calls.map(([line]) => JSON.parse(String(line)))
+			.filter((line) => line.msg === "background_done");
+
+	describe("?tag", () => {
+		it("accumulates tags across requests of one environment", async () => {
+			const first = await getHealth("?tag=a");
+			const second = await getHealth("?tag=b");
+
+			expect(first.seenTags).toEqual(["a"]);
+			expect(second.seenTags).toEqual(["a", "b"]);
+		});
+
+		it("starts with empty seenTags in a new environment", async () => {
+			await getHealth("?tag=a");
+			vi.resetModules();
+
+			expect((await getHealth("?tag=b")).seenTags).toEqual(["b"]);
+		});
+
+		it("omits seenTags when no tag is given", async () => {
+			await getHealth("?tag=a");
+
+			expect(await getHealth()).not.toHaveProperty("seenTags");
+		});
+
+		it("never logs the tag", async () => {
+			await getHealth("?tag=secretTag42");
+
+			const logged = vi.mocked(console.log).mock.calls.flat().join("\n");
+			expect(logged).not.toContain("secretTag42");
+		});
+
+		it.each(["", " ", "a-b", "é", "a".repeat(21)])(
+			"rejects tag=%j with 400 and leaves counters untouched",
+			async (value) => {
+				const { app } = await import("./index");
+
+				const res = await app.request(
+					`/health?tag=${encodeURIComponent(value)}`,
+				);
+
+				expect(res.status).toBe(400);
+				expect(await res.json()).toEqual({ error: "invalid_tag" });
+				expect(await getHealth("?tag=ok")).toMatchObject({
+					invocation: 1,
+					seenTags: ["ok"],
+				});
+			},
+		);
+
+		it("accepts a 20-char alphanumeric tag", async () => {
+			const tag = "aZ09".repeat(5);
+
+			expect((await getHealth(`?tag=${tag}`)).seenTags).toEqual([tag]);
+		});
+	});
+
+	describe("?bg", () => {
+		// Fake timers prove the timer is NOT awaited (response before log). They
+		// cannot show the freeze: locally the process keeps running. On Lambda the
+		// environment freezes after the response, so the log only appears after
+		// the next thaw — that is what the lab on AWS demonstrates.
+		it("responds before the background log fires", async () => {
+			vi.useFakeTimers();
+			try {
+				const res = await (await import("./index")).app.request("/health?bg=1");
+
+				expect(res.status).toBe(200);
+				expect(backgroundLogs()).toEqual([]);
+				await vi.advanceTimersByTimeAsync(999);
+				expect(backgroundLogs()).toEqual([]);
+				await vi.advanceTimersByTimeAsync(1);
+				expect(backgroundLogs()).toEqual([
+					{ msg: "background_done", startedAtInvocation: 1 },
+				]);
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it("tags each background log with the invocation that started it", async () => {
+			vi.useFakeTimers();
+			try {
+				await getHealth("?bg=1");
+				await getHealth("?bg=1");
+				await vi.advanceTimersByTimeAsync(1000);
+
+				expect(backgroundLogs()).toEqual([
+					{ msg: "background_done", startedAtInvocation: 1 },
+					{ msg: "background_done", startedAtInvocation: 2 },
+				]);
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it.each(["0", "true", ""])(
+			"rejects bg=%j with 400 and leaves counters untouched",
+			async (value) => {
+				const { app } = await import("./index");
+
+				const res = await app.request(`/health?bg=${value}`);
+
+				expect(res.status).toBe(400);
+				expect(await res.json()).toEqual({ error: "invalid_bg" });
+				expect((await getHealth()).invocation).toBe(1);
+			},
+		);
+	});
+});
+
+describe("GET /health without LAB_MODE", () => {
+	it("ignores tag and bg, responding exactly as usual", async () => {
+		vi.useFakeTimers();
+		try {
+			const res = await (await import("./index")).app.request(
+				"/health?tag=a-b-invalid&bg=nope",
+			);
+			await vi.advanceTimersByTimeAsync(1000);
+
+			expect(res.status).toBe(200);
+			expect(await res.json()).not.toHaveProperty("seenTags");
+			expect(vi.getTimerCount()).toBe(0);
+			const logged = vi.mocked(console.log).mock.calls.flat().join("\n");
+			expect(logged).not.toContain("background_done");
 		} finally {
 			vi.useRealTimers();
 		}
