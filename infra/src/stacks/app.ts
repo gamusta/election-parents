@@ -1,7 +1,15 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { ApiGatewayDeployment } from "@cdktn/provider-aws/lib/api-gateway-deployment";
+import { ApiGatewayIntegration } from "@cdktn/provider-aws/lib/api-gateway-integration";
+import { ApiGatewayMethod } from "@cdktn/provider-aws/lib/api-gateway-method";
+import { ApiGatewayMethodSettings } from "@cdktn/provider-aws/lib/api-gateway-method-settings";
+import { ApiGatewayResource } from "@cdktn/provider-aws/lib/api-gateway-resource";
+import { ApiGatewayRestApi } from "@cdktn/provider-aws/lib/api-gateway-rest-api";
+import { ApiGatewayStage } from "@cdktn/provider-aws/lib/api-gateway-stage";
+import { LambdaPermission } from "@cdktn/provider-aws/lib/lambda-permission";
 import { AwsProvider } from "@cdktn/provider-aws/lib/provider";
-import { S3Backend, TerraformOutput, TerraformStack } from "cdktn";
+import { Fn, S3Backend, TerraformOutput, TerraformStack } from "cdktn";
 import type { Construct } from "constructs";
 import type { Manifest } from "../constructs/lambda-handler";
 import { LambdaHandler } from "../constructs/lambda-handler";
@@ -35,6 +43,77 @@ export class AppStack extends TerraformStack {
 			manifest,
 		});
 
+		const api = new ApiGatewayRestApi(this, "api", {
+			name: `${props.stage}-api`,
+			endpointConfiguration: { types: ["REGIONAL"] },
+		});
+
+		const healthResource = new ApiGatewayResource(this, "health_resource", {
+			restApiId: api.id,
+			parentId: api.rootResourceId,
+			pathPart: "health",
+		});
+
+		const healthMethod = new ApiGatewayMethod(this, "health_method", {
+			restApiId: api.id,
+			resourceId: healthResource.id,
+			httpMethod: "GET",
+			authorization: "NONE",
+		});
+
+		const healthIntegration = new ApiGatewayIntegration(
+			this,
+			"health_integration",
+			{
+				restApiId: api.id,
+				resourceId: healthResource.id,
+				httpMethod: healthMethod.httpMethod,
+				type: "AWS_PROXY",
+				integrationHttpMethod: "POST",
+				uri: health.fn.invokeArn,
+			},
+		);
+
+		new LambdaPermission(this, "health_api_permission", {
+			functionName: health.fn.functionName,
+			action: "lambda:InvokeFunction",
+			principal: "apigateway.amazonaws.com",
+			sourceArn: `${api.executionArn}/*/GET/health`,
+		});
+
+		const deployment = new ApiGatewayDeployment(this, "api_deployment", {
+			restApiId: api.id,
+			triggers: {
+				redeployment: Fn.sha1(
+					Fn.jsonencode([
+						healthResource.id,
+						healthMethod.id,
+						healthIntegration.id,
+					]),
+				),
+			},
+			lifecycle: { createBeforeDestroy: true },
+		});
+
+		const apiStage = new ApiGatewayStage(this, "api_stage", {
+			restApiId: api.id,
+			deploymentId: deployment.id,
+			stageName: props.stage,
+		});
+
+		new ApiGatewayMethodSettings(this, "api_throttling", {
+			restApiId: api.id,
+			stageName: apiStage.stageName,
+			methodPath: "*/*",
+			settings: {
+				throttlingBurstLimit: 10,
+				throttlingRateLimit: 5,
+			},
+		});
+
+		new TerraformOutput(this, "api_url", {
+			value: apiStage.invokeUrl,
+		});
 		new TerraformOutput(this, "health_function_name", {
 			value: health.fn.functionName,
 		});
