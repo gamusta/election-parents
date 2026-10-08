@@ -48,3 +48,33 @@ Chaque fiche répond à 4 questions : qu'est-ce que je vois ? qui dit non ? où 
 - **Je regarde :** le message d'erreur de l'API ; l'état réel (`aws budgets describe-budget …`) : `cost_types` toujours présent.
 - **Je répare :** retirer un attribut *Optional + Computed* du code ne le supprime pas côté AWS. Recréer la ressource : `terraform apply -replace=<adresse>` (plan en `-/+`).
 - **À retenir :** `~` = même ressource modifiée ; `-/+` = détruite puis recréée (attribut immuable ou `-replace`) → danger pour tout ce qui porte des données.
+## Bloc 2 — `REPORT` sans `initDurationMs` alors que la réponse dit `coldStart: true`
+- **Je vois :** une réponse `coldStart: true` et une ligne `platform.report` sans `initDurationMs`.
+- **Qui dit non / qui gagne :** personne : je compare deux invocations différentes (la ligne `REPORT` lue appartient à une autre requête, warm).
+- **Je regarde :** le `requestId` de la ligne `platform.report` et celui des logs applicatifs de la même invocation (`aws logs tail … --format short`).
+- **Je répare :** toujours apparier logs et `REPORT` par `requestId`, jamais par l'heure. Un vrai cold start a un `platform.initStart` juste avant son `platform.start`.
+
+## Bloc 2 — cold start à ~860 ms dont seulement ~180 ms d'INIT
+- **Je vois :** `initDurationMs` ≈ 180, mais `durationMs` ≈ 680 au 1er appel, contre ~3 ms en warm ; l'access log Hono indique 3 ms.
+- **Qui dit non / qui gagne :** la pénalité de 1re invocation : chargement paresseux des classes Fetch (`Request`/`Response`) et compilation V8 de l'adaptateur, exécutés pendant l'invocation, donc avec le CPU bridé (256 Mo ≈ 1/7 de vCPU).
+- **Je regarde :** `platform.report` (init vs duration) ; `sinceInitMs` ≈ temps entre `platform.start` et la route : le coût est avant la route, dans l'adaptateur.
+- **Je répare :** priming en portée module (top-level await : `handler()` sur un event synthétique `GET /__prime` → 404). Mesuré : init 179 → 185 ms, duration 678 → 8 ms, facturé 858 → 194 ms.
+- **À retenir :** cold start = création de la micro-VM (invisible, non facturée) + INIT (CPU plus généreux, facturée depuis août 2025) + 1re invocation (CPU bridé). Le priming fait passer le travail paresseux sur le CPU de l'INIT : gain en latence et en coût, même en on-demand. Juger la latence perçue (`init + duration`, et curl), pas `initDurationMs` seul.
+
+## Bloc 2 — appel warm lent après une pause
+- **Je vois :** 2-3 ms en rafale, 17-31 ms après 50 s ou 2 min sans appel, même `instanceId`, pas d'INIT.
+- **Qui dit non / qui gagne :** le freeze/thaw : l'environnement a été suspendu, ce qui avait été chargé en cache refroidit.
+- **Je regarde :** `durationMs` des `platform.report` en fonction de l'écart entre appels.
+- **Je répare :** rien (comportement normal). Au-delà de ~20-30 min sans trafic, l'environnement est recyclé : nouvel `instanceId`, nouveau cold start.
+
+## Bloc 2 — 125 ms côté client pour 3 ms côté Lambda
+- **Je vois :** `curl` `time_total` ≈ 125 ms en warm ; `durationMs` ≈ 3 ms. Au cold : 521 ms côté client, 193 ms côté Lambda.
+- **Qui dit non / qui gagne :** le réseau (Marseille → eu-west-1), le TLS (nouvelle connexion à chaque curl), API Gateway ; au cold, en plus, la création de la micro-VM avant `initStart`.
+- **Je regarde :** `curl -w "dns=%{time_namelookup} tcp=%{time_connect} tls=%{time_appconnect} ttfb=%{time_starttransfer} total=%{time_total}"`.
+- **Je répare :** rien à réparer : savoir répartir la latence entre réseau, plateforme et code avant d'optimiser le code.
+
+## Bloc 2 — CI rouge après l'ajout de la stack app (à diagnostiquer)
+- **Je vois :** l'étape `cdktn diff dev-bootstrap` échoue sur `apps/api/dist/manifest.json not found`, alors que bootstrap n'a pas changé.
+- **Qui dit non :** _à compléter_
+- **Je regarde :** _à compléter_
+- **Je répare :** _à compléter_

@@ -1,6 +1,6 @@
-import type { LambdaEvent } from "@hono/aws-lambda";
-import type { APIGatewayProxyEvent, Context } from "aws-lambda";
+import type { Context } from "aws-lambda";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { proxyEvent } from "../../http/proxy-event";
 import { app, handler } from "./index";
 
 const VALID_ID = "3f2b8c1e-7a4d-4e9b-9c2a-1d5e6f7a8b9c";
@@ -9,38 +9,12 @@ beforeEach(() => {
 	vi.spyOn(console, "log").mockImplementation(() => {});
 });
 
-// Built against the official AWS shape (nullable fields, no `version`),
-// then cast: Hono's own LambdaEvent typing is stricter than what API Gateway sends.
-const proxyEvent = (path: string): LambdaEvent => {
-	const event: APIGatewayProxyEvent = {
-		resource: "/elections/{id}",
+const electionEvent = (path: string) =>
+	proxyEvent({
 		path,
-		httpMethod: "GET",
-		headers: { accept: "application/json" },
-		multiValueHeaders: { accept: ["application/json"] },
-		queryStringParameters: null,
-		multiValueQueryStringParameters: null,
+		resource: "/elections/{id}",
 		pathParameters: { id: path.split("/").at(-1) ?? "" },
-		stageVariables: null,
-		body: null,
-		isBase64Encoded: false,
-		requestContext: {
-			accountId: "000000000000",
-			apiId: "test",
-			authorizer: null,
-			protocol: "HTTP/1.1",
-			httpMethod: "GET",
-			identity: {} as APIGatewayProxyEvent["requestContext"]["identity"],
-			path: `/test${path}`,
-			stage: "test",
-			requestId: "req-1",
-			requestTimeEpoch: 0,
-			resourceId: "res",
-			resourcePath: "/elections/{id}",
-		},
-	};
-	return event as unknown as LambdaEvent;
-};
+	});
 
 describe("GET /elections/:id", () => {
 	it("returns 400 invalid_election_id for a non-UUID id", async () => {
@@ -63,7 +37,7 @@ describe("GET /elections/:id", () => {
 
 	it("honours the API Gateway proxy v1 contract", async () => {
 		const res = await handler(
-			proxyEvent(`/elections/${VALID_ID}`),
+			electionEvent(`/elections/${VALID_ID}`),
 			{} as Context,
 		);
 
@@ -74,7 +48,7 @@ describe("GET /elections/:id", () => {
 	});
 
 	it("maps validation errors to 400 through the proxy contract", async () => {
-		const res = await handler(proxyEvent("/elections/nope"), {} as Context);
+		const res = await handler(electionEvent("/elections/nope"), {} as Context);
 
 		expect(res.statusCode).toBe(400);
 		expect(JSON.parse(res.body)).toEqual({ error: "invalid_election_id" });
