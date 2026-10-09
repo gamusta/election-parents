@@ -22,7 +22,7 @@ export interface LambdaHandlerProps {
 	manifest: Manifest;
 	statements?: DataAwsIamPolicyDocumentStatement[];
 	environment?: Record<string, string>;
-	memorySize?: number
+	memorySize?: number;
 }
 
 export class LambdaHandler extends Construct {

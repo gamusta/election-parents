@@ -1,0 +1,22 @@
+{
+	"name": "@election/voting",
+	"license": "ISC",
+	"type": "module",
+	"private": true,
+	"exports": {
+		".": "./src/index.ts",
+		"./in-memory": "./src/infrastructure/in-memory/index.ts"
+	},
+	"scripts": {
+		"test": "vitest run",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@election/kernel": "workspace:*",
+		"zod": "^4.6.5"
+	},
+	"devDependencies": {
+		"typescript": "^7.0.2",
+		"vitest": "^5.0.3"
+	}
+}

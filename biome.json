@@ -30,5 +30,70 @@
 				"organizeImports": "on"
 			}
 		}
-	}
+	},
+	"overrides": [
+		{
+			"includes": ["packages/*/src/domain/**"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"paths": {
+									"zod": "Domain must not depend on Zod.",
+									"hono": "Domain must not depend on Hono."
+								},
+								"patterns": [
+									{
+										"group": ["@aws-sdk/*"],
+										"message": "Domain must not depend on AWS SDK."
+									},
+									{
+										"group": [
+											"**/application",
+											"**/application/**",
+											"**/infrastructure",
+											"**/infrastructure/**",
+											"@election/*/*"
+										],
+										"message": "Domain must not import"
+									}
+								]
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/*/src/application/**"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"paths": {
+									"zod": "Validate at the HTTP boundary.",
+									"hono": "Application is transport-agnostic."
+								},
+								"patterns": [
+									{ "group": ["@aws-sdk/*"], "message": "Use a port." },
+									{
+										"group": [
+											"**/infrastructure",
+											"**/infrastructure/**",
+											"@election/*/*"
+										],
+										"message": "Application depends on ports, not adapters."
+									}
+								]
+							}
+						}
+					}
+				}
+			}
+		}
+	]
 }
