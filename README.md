@@ -20,7 +20,7 @@ pnpm lint && pnpm test
 |---|---|
 | `apps/api` | Handlers Lambda (Hono + Zod) |
 | `apps/web` | Front (S3 privé + CloudFront OAC) |
-| `packages/shared` | Schémas Zod partagés |
+| `packages/contracts` | Schémas Zod partagés (contrat HTTP) |
 | `infra/` | Stacks cdktn : bootstrap, data, network, app |
 | `docs/` | `plan.md`, `diagnostic.md`, `adr/` |
 

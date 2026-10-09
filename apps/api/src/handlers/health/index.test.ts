@@ -1,4 +1,4 @@
-import { LabCpuWorkSchema, LabSleepMsSchema } from "@election/shared";
+import { LabCpuWorkSchema, LabSleepMsSchema } from "@election/contracts";
 import type { Context } from "aws-lambda";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { proxyEvent } from "../../http/proxy-event";

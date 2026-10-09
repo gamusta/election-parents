@@ -5,7 +5,7 @@ import {
 	LabSleepMsSchema,
 	LabTagSchema,
 	SleepMsSchema,
-} from "@election/shared";
+} from "@election/contracts";
 import { handle } from "@hono/aws-lambda";
 import { createApp } from "../../http/create-app";
 import { proxyEvent } from "../../http/proxy-event";

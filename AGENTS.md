@@ -2,7 +2,7 @@
 
 ## Contexte
 Projet d'apprentissage AWS serverless + IaC. Objectif : « savoir reconstruire et diagnostiquer l'infra », pas une app de production.
-Une école crée une élection et invite des parents (magic link usage unique) ; chaque parent vote une fois, vote secret ; dépouillement automatique à la clôture (plus forte moyenne).
+Une école crée une élection et invite des parents (magic link usage unique) ; chaque parent vote une fois, vote secret ; dépouillement automatique à la clôture (représentation proportionnelle au plus fort reste).
 
 ## Répartition des rôles (IMPORTANT)
 - L'IA écrit le **code applicatif** (`apps/`, `packages/`), les tests et la doc.
@@ -21,14 +21,16 @@ Une école crée une élection et invite des parents (magic link usage unique) ;
 ```
 apps/api          Handlers Lambda (Hono) — un dossier par handler
 apps/web          Front (S3 privé + CloudFront OAC)
-packages/shared   Schémas Zod et types partagés api ↔ web
+packages/contracts Schémas Zod (contrat HTTP) api ↔ web
+packages/kernel   Shared kernel DDD (Result, DomainEvent, AggregateRoot)
+packages/<ctx>    Bounded contexts (voting, plus tard school, reporting) : domain / application / infrastructure
 infra/            Stacks cdktn : bootstrap / data / network / app
 docs/             plan.md, diagnostic.md, adr/
 ```
 
 ## Conventions
 - **Un handler = une Lambda = un rôle IAM.** Un handler n'accède qu'aux ressources de son propre rôle.
-- Toute entrée externe est validée par un schéma Zod de `packages/shared`.
+- Toute entrée externe est validée par un schéma Zod de `packages/contracts`.
 - Configuration par variables d'environnement (noms de table, ARN de clé…), jamais en dur.
 - Noms de ressources préfixés par `stage`.
 - Erreurs : distinguer erreur applicative (4xx explicite) et erreur plateforme ; ne jamais renvoyer de stack trace.

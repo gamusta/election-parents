@@ -1,4 +1,4 @@
-import { ElectionIdSchema } from "@election/shared";
+import { ElectionIdSchema } from "@election/contracts";
 import { handle } from "@hono/aws-lambda";
 import { createApp } from "../../http/create-app";
 
