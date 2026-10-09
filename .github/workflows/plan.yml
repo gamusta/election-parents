@@ -28,6 +28,6 @@ jobs:
           aws-region: eu-west-1
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-        working-directory: api
+        working-directory: apps/api
       - run: pnpm exec cdktn diff dev-bootstrap && pnpm exec cdktn diff dev-app
         working-directory: infra
