@@ -116,3 +116,23 @@ Chaque fiche répond à 4 questions : qu'est-ce que je vois ? qui dit non ? où 
 - **Qui dit non :** zsh : en mode interactif, `#` n'est pas un commentaire par défaut ; `(…)` est lu comme un *glob qualifier*.
 - **Je regarde :** les mots d'erreur correspondent au texte après `#`.
 - **Je répare :** `setopt interactivecomments` dans `~/.zshrc`.
+
+## Bloc 2 — `502 {"message":"Internal server error"}` après ~10 s
+- **Je vois :** le client reçoit un 502 au bout de 10,5 s ; même corps qu'un 500.
+- **Qui dit non :** Lambda : son `timeout` (10 s) est atteint, l'invocation est coupée (`Task timed out after 10.00 seconds`). Lambda renvoie une erreur de fonction au lieu d'une réponse proxy ; API Gateway la traite comme un échec d'intégration (502).
+- **Je regarde :** `platform.report` → `"status":"timeout"`, `durationMs` = la limite ; access log API Gateway → `errorType: INTEGRATION_FAILURE`, `integrationError` contenant le `requestId` de la Lambda (corrélation directe avec ses logs).
+- **Je répare :** trouver pourquoi le code dépasse (dépendance lente, boucle) ; ne monter le `timeout` que si la durée est légitime, en restant sous le timeout de l'intégration.
+- **À retenir :** le temps jusqu'au timeout est facturé (~10 s ici) pour une erreur.
+
+## Bloc 2 — `504 {"message":"Endpoint request timed out"}` après 29 s
+- **Je vois :** le client reçoit un 504 à 29,2 s.
+- **Qui dit non :** API Gateway : le timeout de son intégration (`timeoutMilliseconds`, 29 000 par défaut, non défini dans le code) tombe avant celui de la Lambda (40 s).
+- **Je regarde :** access log → `errorType: INTEGRATION_TIMEOUT`, `integrationLatency: 29000`, `integrationError` **sans** `requestId` Lambda ; logs Lambda → l'invocation continue et finit en `"status":"success"` (35 s), son access log interne dit 200.
+- **Je répare :** imposer `timeout Lambda < timeoutMilliseconds de l'intégration < patience du client` (ex. intégration 10 s, Lambda 8 s), pour que la Lambda coupe toujours en premier (502 explicite, corrélable).
+- **À retenir :** sur un 504, la Lambda a travaillé et facturé (~35 s) une réponse que personne ne reçoit, et occupé un environnement ; la corrélation ne se fait plus que par l'heure.
+
+## Bloc 2 — `logs tail` n'affiche rien alors que l'appel a eu lieu
+- **Je vois :** `aws logs tail … --since 5m | grep …` est vide.
+- **Qui dit non :** la fenêtre de temps : l'appel datait de plus de 5 min (et les logs sont en UTC, Paris = UTC+2).
+- **Je regarde :** relancer sans `grep`, avec `--since 15m` ; convertir l'heure locale en UTC.
+- **Je répare :** élargir la fenêtre, ou filtrer par `requestId` avec `aws logs filter-log-events --filter-pattern '"<requestId>"'`. Penser aussi au délai de livraison des logs (jusqu'à quelques minutes).

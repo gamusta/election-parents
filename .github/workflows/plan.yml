@@ -27,5 +27,7 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: eu-west-1
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec cdktn diff dev-bootstrap
+      - run: pnpm build
+        working-directory: api
+      - run: pnpm exec cdktn diff dev-bootstrap && pnpm exec cdktn diff dev-app
         working-directory: infra
