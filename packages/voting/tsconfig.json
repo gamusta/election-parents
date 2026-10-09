@@ -13,5 +13,5 @@
 		"noEmit": true,
 		"types": []
 	},
-	"include": ["src"]
+	"include": ["src", "../kernel/src/result.test.ts", "../kernel/src/result.ts"]
 }
