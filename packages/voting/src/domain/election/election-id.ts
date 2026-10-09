@@ -1,7 +1,5 @@
 import { err, ok, type Result } from "@election/kernel";
-
-// Canonical UUID, any version, lowercase.
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+import { isUuid } from "../uuid";
 
 export type ElectionIdError = "invalid_election_id";
 
@@ -10,7 +8,7 @@ export class ElectionId {
 
 	static create(raw: string): Result<ElectionId, ElectionIdError> {
 		const value = raw.toLowerCase();
-		return UUID.test(value)
+		return isUuid(value)
 			? ok(new ElectionId(value))
 			: err("invalid_election_id");
 	}
