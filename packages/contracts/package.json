@@ -1,5 +1,5 @@
 {
-	"name": "@election/shared",
+	"name": "@election/contracts",
 	"scripts": {
 		"typecheck": "tsc --noEmit"
 	},
