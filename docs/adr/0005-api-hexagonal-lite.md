@@ -1,6 +1,6 @@
 # ADR-0005 — API code layout: hexagonal-lite, one Hono app per Lambda
 
-- Status: accepted
+- Status: superseded by ADR-0008
 - Date: 2026-10-07
 - Block: api
 
