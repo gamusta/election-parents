@@ -1,7 +1,7 @@
 # Plan — prépa test archi PayFit (5 jours × 8 h)
 
 Objectif : savoir **concevoir, justifier et diagnostiquer** une architecture DDD + event-driven sur AWS, en anglais, au tableau.
-Calendrier : J1 = lundi 12/10 → J5 = vendredi 16/10 ; test PayFit la semaine suivante. Outil de dessin : Excalidraw (mocks, tests cumulatifs, répétition).
+Calendrier : J1 = sam. 10/10 → J5 = mer. 14/10 ; test PayFit jeu. 15/10. Outil de dessin : Excalidraw (mocks, tests cumulatifs, répétition).
 
 Cycle de chaque bloc : déployer → observer → modifier → casser → diagnostiquer → corriger.
 Critère de réussite : « je sais expliquer la panne » **et** « je sais justifier le choix en 2 minutes, en anglais ».
