@@ -6,7 +6,7 @@ Une école crée une élection et invite des parents (magic link usage unique) ;
 
 ## Répartition des rôles (IMPORTANT)
 - **Le développeur code lui-même**, pas à pas, les parties nouvelles : domaine DDD (agrégats, domain events, repositories), SQS/SNS/EventBridge/Streams/Step Functions/ECS, idempotence, et tout `infra/`. L'IA guide : étapes, points de vigilance, revue précise. **Pas de code complet sauf demande explicite.**
-- **Init from scratch** (`apps/web`, nouveau package de contexte, worker ECS) : faite par le développeur, l'IA relit ensuite.
+- **Init from scratch** (`apps/web`, nouveau package de contexte + son handler, worker ECS) : faite par le développeur, l'IA relit ensuite.
 - L'IA génère le boilerplate : handlers simples, tests de base, écrans du front une fois l'init faite, et la doc.
 - `infra/` est l'exercice du développeur : **ne pas modifier `infra/`** sauf demande explicite.
 - **Ne jamais lancer** `terraform apply|destroy`, `cdktn deploy|destroy`, ni aucune commande AWS qui crée, modifie ou supprime une ressource. Lecture seule autorisée (`plan`, `synth`, `describe`, `get`, `list`).
@@ -15,7 +15,7 @@ Une école crée une élection et invite des parents (magic link usage unique) ;
 ## Stack
 - Node 24 (runtime Lambda `nodejs24.x`), TypeScript strict, ESM. Lambdas **ARM64**, bundling esbuild. Le poste de dev est un Mac Intel : signaler toute dépendance avec binaire natif.
 - Backend : Hono + Zod.
-- AWS (eu-west-1) : API Gateway REST, Lambda, DynamoDB single-table (+ Streams), SQS, SNS, SES, EventBridge (bus, Pipes, Scheduler), Step Functions, ECS Fargate ARM64 + ECR, S3, CloudWatch. Hors périmètre actuel : Cognito, authorizer, KMS JWT, VPC sur mesure, CloudFront.
+- AWS (eu-west-1) : API Gateway REST, Lambda, DynamoDB single-table (+ Streams), SQS, SNS, SES, EventBridge (bus, Pipes, Scheduler), Step Functions, ECS Fargate x86_64 + ECR (image `linux/amd64` : poste Mac Intel, pas d'émulation), S3, CloudWatch. Hors périmètre actuel : Cognito, authorizer, KMS JWT, VPC sur mesure, CloudFront.
 - Front : React + TanStack (Router, Query, Form), Zustand, shadcn/ui.
 - Tests : Vitest ; BDD en Gherkin (`*.feature`) via `@amiceli/vitest-cucumber`.
 - IaC : cdktn (TypeScript → Terraform). Versions d'outils épinglées dans `mise.toml`.
@@ -24,7 +24,7 @@ Une école crée une élection et invite des parents (magic link usage unique) ;
 ## Structure
 ```
 apps/api          Handlers Lambda (Hono) — un dossier par handler
-apps/web          Front (S3 privé + CloudFront OAC)
+apps/web          Front (local uniquement, appelle l'API déployée ; CORS sur API Gateway)
 packages/contracts Schémas Zod (contrat HTTP) api ↔ web
 packages/kernel   Shared kernel DDD (Result ; DomainEvent et AggregateRoot à venir)
 packages/<ctx>    Bounded contexts (voting, plus tard school, reporting) : domain / application / infrastructure
