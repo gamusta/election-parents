@@ -10,7 +10,8 @@ export interface CandidateListProps {
 	readonly candidates: readonly Candidate[];
 }
 
-const normalizeName = (raw: string): string => raw.trim().replace(/\s+/g, " ");
+export const normalizeListName = (raw: string): string =>
+	raw.trim().replace(/\s+/g, " ");
 
 /**
  * Entity inside the Election aggregate: identity (id) is stable while its
@@ -28,7 +29,7 @@ export class CandidateList {
 	static create(
 		props: CandidateListProps,
 	): Result<CandidateList, CandidateListError> {
-		const name = normalizeName(props.name);
+		const name = normalizeListName(props.name);
 		if (name.length === 0) return err("invalid_list_name");
 		if (props.candidates.length === 0) return err("no_candidates");
 		return ok(
@@ -54,7 +55,7 @@ export class CandidateList {
 	}
 
 	rename(raw: string): Result<void, "invalid_list_name"> {
-		const name = normalizeName(raw);
+		const name = normalizeListName(raw);
 		if (name.length === 0) return err("invalid_list_name");
 		this.currentName = name;
 		return ok();
