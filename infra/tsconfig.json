@@ -1,6 +1,6 @@
 {
 	"compilerOptions": {
-		"types": ["node", "jest"],
+		"types": ["node"],
 		"alwaysStrict": true,
 		"declaration": true,
 		"experimentalDecorators": true,
