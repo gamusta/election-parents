@@ -6,7 +6,8 @@ Une école crée une élection et invite des parents (magic link usage unique) ;
 
 ## Répartition des rôles (IMPORTANT)
 - **Le développeur code lui-même**, pas à pas, les parties nouvelles : domaine DDD (agrégats, domain events, repositories), SQS/SNS/EventBridge/Streams/Step Functions/ECS, idempotence, et tout `infra/`. L'IA guide : étapes, points de vigilance, revue précise. **Pas de code complet sauf demande explicite.**
-- L'IA génère le boilerplate : handlers simples, tests de base, front (`apps/web`), et la doc.
+- **Init from scratch** (`apps/web`, nouveau package de contexte, worker ECS) : faite par le développeur, l'IA relit ensuite.
+- L'IA génère le boilerplate : handlers simples, tests de base, écrans du front une fois l'init faite, et la doc.
 - `infra/` est l'exercice du développeur : **ne pas modifier `infra/`** sauf demande explicite.
 - **Ne jamais lancer** `terraform apply|destroy`, `cdktn deploy|destroy`, ni aucune commande AWS qui crée, modifie ou supprime une ressource. Lecture seule autorisée (`plan`, `synth`, `describe`, `get`, `list`).
 - Ne jamais écrire de secret, ID de compte ou ARN en dur.

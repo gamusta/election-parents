@@ -20,16 +20,16 @@ Après-midi : le domaine dure 40 min (suite directe du matin), l'infra 1 h 20. S
 ## Grille des 10 demi-journées
 | | 🧠 Domaine | ☁️ Infra | ⚛️ React | ⚡ Réflexes | 🎙 Mock / test |
 |---|---|---|---|---|---|
-| **J1 M** | Context Map → ADR-0008 | Stack `data` : DynamoDB single-table | Vite + shadcn + Router | Terminal (Ghostty, zsh) | Mock : payroll run ✅ |
-| **J1 A** | Example mapping `Election` + `.feature` ; kernel | Lambda `get-election` + IAM `LeadingKeys` + Logs Insights | Query : liste, `queryKey` | Cursor | Test : DDD, BDD |
-| **J2 M** | Agrégat `Election` en TDD | Lambda `cast-vote` + route + IAM + EMF | Form + Zod | Git | Mock : double paiement |
-| **J2 A** | Repository + fake, verrou optimiste ; CQRS lecture | Pannes DynamoDB + dashboard CloudWatch | Mutation + clé d'idempotence | AWS CLI | Test : + idempotence, TDD |
-| **J3 M** | `cast-vote.feature` outside-in → `CastVote` ; ADR-0009 | SQS + DLQ + event source mapping | Zustand | Debug Node/TS | Mock : 50k virements |
-| **J3 A** | `SeatAllocator` en kata TDD ; ADR-0007 | Alarmes → SNS ; SES simulateur ; redrive | Polling, error boundaries | pnpm / mise | Test : + SQS, DLQ, SNS |
-| **J4 M** | Agrégat `Invitation` + inbox de dédup ; ADR-0010 | SES → SNS → SQS (fan-out, filter policy) | Hooks custom | HTTP, `jq` | Mock : webhooks Stripe |
+| **J1 M** | Context Map → ADR-0008 | Stack `data` : DynamoDB single-table | 🏗 **Init `apps/web` from scratch** (moi) | Terminal (Ghostty, zsh) | Mock : payroll run ✅ |
+| **J1 A** | Example mapping `Election` + `.feature` ; kernel | Lambda `get-election` + IAM `LeadingKeys` + Logs Insights | 🏗 Router file-based + shadcn + garde-fous (CI, env) | 🏗 Config projet from scratch | Test : DDD, BDD |
+| **J2 M** | Agrégat `Election` en TDD | Lambda `cast-vote` + route + IAM + EMF | Query : liste, `queryKey` | Cursor | Mock : double paiement |
+| **J2 A** | Repository + fake, verrou optimiste ; CQRS lecture | Pannes DynamoDB + dashboard CloudWatch | Form + Zod | Git | Test : + idempotence, TDD |
+| **J3 M** | `cast-vote.feature` outside-in → `CastVote` ; ADR-0009 | SQS + DLQ + event source mapping | Mutation + clé d'idempotence | AWS CLI | Mock : 50k virements |
+| **J3 A** | `SeatAllocator` en kata TDD ; ADR-0007 | Alarmes → SNS ; SES simulateur ; redrive | Zustand | Debug Node/TS | Test : + SQS, DLQ, SNS |
+| **J4 M** | 🏗 Contexte `packages/school` from scratch ; agrégat `Invitation` + inbox ; ADR-0010 | SES → SNS → SQS (fan-out, filter policy) | Polling, hooks custom, error boundaries | pnpm / mise, HTTP, `jq` | Mock : webhooks Stripe |
 | **J4 A** | Outbox (ADR-0011) + projection `ElectionResults` (ADR-0013) | Streams → Pipes → EventBridge → projection | Optimistic update, prefetch | Cursor avancé / IA | Test : + outbox, CQRS |
 | **J5 M** | `CloseElection` ; ADR-0012 orchestration vs chorégraphie | Scheduler → Step Functions | Testing Library + MSW | Whiteboarding | Mock : saga de clôture de paie |
-| **J5 A** | ADR-0014 Lambda vs ECS | ECR + ECS Fargate ARM64 → S3 (1 h 20) | Revue best practices (30 min) | Top 10 de la semaine | **Répétition générale 2 h** |
+| **J5 A** | ADR-0014 Lambda vs ECS | 🏗 Worker ECS from scratch (Dockerfile ARM64) → S3 (1 h 20) | Revue best practices (30 min) | Top 10 de la semaine | **Répétition générale 2 h** |
 
 ---
 
@@ -41,7 +41,7 @@ Pratiques : example mapping + `.feature` avant chaque agrégat (BDD, exécuté p
 - **J2 A** : port `ElectionRepository` + fake en mémoire + adapter DynamoDB (verrou optimiste `version`) ; `get-election` devient un query service sans agrégat.
 - **J3 M** : outside-in : `cast-vote.feature` rouge → `CastVote` → vert ; adapter `TransactWriteItems` + `ClientRequestToken` ; contrainte en base vs check applicatif → ADR-0009.
 - **J3 A** : `SeatAllocator` en kata (plus fort reste, égalités, triangulation) ; ADR-0007 finalisé.
-- **J4 M** : `invitation.feature` → agrégat `Invitation` (`PENDING → SENT → DELIVERED | BOUNCED`, transitions monotones) ; inbox de dédoublonnage ; ADR-0010 (Standard vs FIFO).
+- **J4 M** : 🏗 création du contexte `packages/school` from scratch (structure domain/application/infrastructure, tsconfig, lint de frontières, tests) ; `invitation.feature` → agrégat `Invitation` (`PENDING → SENT → DELIVERED | BOUNCED`, transitions monotones) ; inbox de dédoublonnage ; ADR-0010 (Standard vs FIFO).
 - **J4 A** : publication des domain events, ADR-0011 (outbox vs direct) ; projection `ElectionResults` + query `get-results`, ADR-0013 (read model, cohérence à terme).
 - **J5 M** : application service `CloseElection` ; ADR-0012 (orchestration vs chorégraphie).
 - **J5 A** : ADR-0014 (Lambda vs ECS pour un consumer).
@@ -56,24 +56,40 @@ Pratiques : example mapping + `.feature` avant chaque agrégat (BDD, exécuté p
 - **J4 M** : configuration set SES → **SNS** → SQS, fan-out vers une file d'audit avec filter policy ; comparer avec SES → EventBridge. Pannes : événement dupliqué, désordre.
 - **J4 A** : DynamoDB Streams → EventBridge Pipes (filtre) → bus → règle → Lambda projection ; `correlationId` de bout en bout. Pannes : filtre trop large (un `BALLOT#` sur le bus), enregistrement poison qui bloque le shard, projection en retard. Bonus : archive + replay.
 - **J5 M** : EventBridge Scheduler → Step Functions Standard (nom d'exécution = `electionId`), Retry/Catch, redrive, `ElectionClosed` en intégration directe. Pannes : double déclenchement, échec transitoire puis permanent, état non idempotent rejoué.
-- **J5 A** : règle EventBridge → SQS → **service ECS Fargate** ARM64 (image ECR via `docker buildx --platform linux/arm64`, VPC par défaut, IP publique) : long polling, `SIGTERM`, idempotence → PV dans **S3** (SSE, versioning, presigned GET) ; autoscaling sur le backlog, min 0. Pannes : sans IP publique, rôle d'exécution vs rôle de tâche, `exec format error`.
+- **J5 A** : 🏗 worker from scratch (Dockerfile multi-stage, utilisateur non root, `.dockerignore`) ; règle EventBridge → SQS → **service ECS Fargate** ARM64 (image ECR via `docker buildx --platform linux/arm64`, VPC par défaut, IP publique) : long polling, `SIGTERM`, idempotence → PV dans **S3** (SSE, versioning, presigned GET) ; autoscaling sur le backlog, min 0. Pannes : sans IP publique, rôle d'exécution vs rôle de tâche, `exec format error`.
 - Fin : `destroy` app après le test ; supprimer les images ECR.
 
-## ⚛️ Piste React — détail (`apps/web`, l'IA génère le squelette, je pratique les concepts)
-- **J1 M** : Vite + TanStack Router (file-based, routes typées) + shadcn.
-- **J1 A** : TanStack Query : `useQuery`, fabrique de `queryKey`, `staleTime` vs `gcTime`.
-- **J2 M** : TanStack Form + Zod (schéma partagé `packages/contracts`).
-- **J2 A** : `useMutation` vote, clé d'idempotence stable côté client, 409 → message métier.
-- **J3 M** : Zustand : store d'import CSV, sélecteurs, éviter les re-renders.
-- **J3 A** : polling des statuts (`refetchInterval`), Suspense, error boundaries.
-- **J4 M** : hooks custom, règles des hooks, pièges de `useEffect`.
+## ⚛️ Piste React — détail (`apps/web` : init faite par moi, ensuite l'IA génère le squelette et je pratique)
+- **J1 M** : 🏗 init from scratch (voir checklist) : Vite + React + TS strict, Biome, Vitest, alias, structure par feature, variables d'env validées par Zod, `pnpm dev/build/test` verts.
+- **J1 A** : 🏗 TanStack Router (file-based, routes typées) + shadcn ; job CI web (lint, typecheck, test, build) ; premier écran.
+- **J2 M** : TanStack Query : `useQuery`, fabrique de `queryKey`, `staleTime` vs `gcTime`.
+- **J2 A** : TanStack Form + Zod (schéma partagé `packages/contracts`).
+- **J3 M** : `useMutation` vote, clé d'idempotence stable côté client, 409 → message métier.
+- **J3 A** : Zustand : store d'import CSV, sélecteurs, éviter les re-renders.
+- **J4 M** : polling des statuts (`refetchInterval`), hooks custom, pièges de `useEffect`, error boundaries.
 - **J4 A** : optimistic update + invalidation ; loader de route + `ensureQueryData`.
 - **J5 M** : tests : Testing Library + MSW.
 - **J5 A** : revue des best practices (mémoïsation, découpage, état serveur vs état client).
 
+## 🏗 Fil rouge « from scratch » (PayFit attend quelqu'un d'autonome sur un projet vierge)
+Pratiqué 3 fois, en autonomie (l'IA relit après) : **`apps/web`** (J1), **`packages/school`** (J4 M), **worker ECS** (J5 A). Chaque fois, je chronomètre et je complète `docs/from-scratch.md` (checklist personnelle, réutilisable en mission).
+
+Checklist « jour 0 » à savoir dérouler et justifier :
+1. **Décider avant de coder** : objectif, contraintes, un ADR-0001 (stack), README de 10 lignes (lancer, tester, déployer).
+2. **Outillage reproductible** : versions épinglées (`mise.toml`, `packageManager`), lockfile commité, `.editorconfig`, `.gitignore` dès le 1er commit.
+3. **Qualité dès le 1er fichier** : TS `strict` (+ `noUncheckedIndexedAccess`), Biome, Vitest, scripts uniformes (`dev`, `build`, `test`, `lint`, `typecheck`), hook pre-commit léger.
+4. **Walking skeleton** : le chemin le plus fin de bout en bout (UI → API → base → déployé) **avant** les fonctionnalités ; CI verte dès le jour 1.
+5. **Frontières** : structure par feature / bounded context, règle de dépendance outillée (lint d'imports), alias.
+6. **Configuration** : variables d'env validées au démarrage (Zod), `.env.example`, aucun secret commité.
+7. **Opérabilité dès le début** : logs JSON, `correlationId`, health check, gestion d'erreur centrale.
+8. **Conventions** : Conventional Commits, petits commits, PR courtes, ADR au fil de l'eau.
+9. **Dette assumée** : ce qu'on ne fait pas tout de suite est écrit (README « Not yet »), pas oublié.
+
+Question récurrente des tests cumulatifs : *« You start a new payment service from scratch on Monday. What do you set up in the first two days, and what do you deliberately postpone? »*
+
 ## ⚡ Piste Réflexes — 5 gestes pratiqués par demi-journée → `docs/reflexes.md`
 Seulement ce que les meilleurs ingénieurs font et que les devs moyens ignorent ; chaque geste est essayé, pas seulement lu.
-J1 M terminal (Ghostty, zsh, fzf, zoxide, ripgrep) · J1 A Cursor · J2 M Git (worktrees, fixup/autosquash, bisect) · J2 A AWS CLI (`--query`, `logs tail`, profils) · J3 M debug Node/TS · J3 A pnpm/mise · J4 M HTTP + `jq` · J4 A Cursor avancé / IA · J5 M whiteboarding · J5 A top 10.
+J1 M terminal (Ghostty, zsh, fzf, zoxide, ripgrep) · J1 A 🏗 config projet from scratch (scaffolding, templates, scripts, hooks) · J2 M Cursor · J2 A Git (worktrees, fixup/autosquash, bisect) · J3 M AWS CLI (`--query`, `logs tail`, profils) · J3 A debug Node/TS · J4 M pnpm/mise, HTTP + `jq` · J4 A Cursor avancé / IA · J5 M whiteboarding · J5 A top 10.
 
 ## 🎙 Mocks et tests cumulatifs
 - **Mock (matin, 40 min)** : un cas PayFit, relances, challenge ; corrections d'anglais et note à la fin → `docs/mock.md`.
