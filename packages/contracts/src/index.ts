@@ -3,6 +3,16 @@ import { z } from "zod";
 export const ElectionIdSchema = z.uuid();
 export type ElectionId = z.infer<typeof ElectionIdSchema>;
 
+export const ElectionResponseSchema = z.object({
+	id: ElectionIdSchema,
+	status: z.enum(["draft", "open", "closed"]),
+	opensAt: z.iso.datetime(),
+	closesAt: z.iso.datetime(),
+	seats: z.number().int().positive(),
+	lists: z.array(z.object({ id: z.uuid(), name: z.string() })),
+});
+export type ElectionResponse = z.infer<typeof ElectionResponseSchema>;
+
 // Query strings are text: digits only (rejects "", " ", "1e3", "0x10", "1.5", "-1").
 export const SleepMsSchema = z
 	.string()

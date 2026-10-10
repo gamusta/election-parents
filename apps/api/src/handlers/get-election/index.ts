@@ -1,14 +1,18 @@
-import { ElectionIdSchema } from "@election/contracts";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { handle } from "@hono/aws-lambda";
-import { createApp } from "../../http/create-app";
+import { buildApp } from "./app";
 
-export const app = createApp().get("/elections/:id", (c) => {
-	const parsed = ElectionIdSchema.safeParse(c.req.param("id"));
-	if (!parsed.success) {
-		return c.json({ error: "invalid_election_id" }, 400);
-	}
-	// Stub until the DynamoDB repository exists.
-	return c.json({ id: parsed.data, name: "Stub election", status: "draft" });
-});
+// Read once at INIT: a missing variable fails the cold start, not every request.
+const tableName = process.env.TABLE_NAME;
+if (!tableName) {
+	throw new Error("TABLE_NAME is not set");
+}
 
-export const handler = handle(app);
+// Client created at INIT and reused across warm invocations.
+export const handler = handle(
+	buildApp({
+		db: DynamoDBDocumentClient.from(new DynamoDBClient({})),
+		tableName,
+	}),
+);

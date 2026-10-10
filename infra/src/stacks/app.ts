@@ -8,6 +8,7 @@ import { ApiGatewayResource } from "@cdktn/provider-aws/lib/api-gateway-resource
 import { ApiGatewayRestApi } from "@cdktn/provider-aws/lib/api-gateway-rest-api";
 import { ApiGatewayStage } from "@cdktn/provider-aws/lib/api-gateway-stage";
 import { CloudwatchLogGroup } from "@cdktn/provider-aws/lib/cloudwatch-log-group";
+import type { DynamodbTable } from "@cdktn/provider-aws/lib/dynamodb-table";
 import { LambdaPermission } from "@cdktn/provider-aws/lib/lambda-permission";
 import { AwsProvider } from "@cdktn/provider-aws/lib/provider";
 import { Fn, S3Backend, TerraformOutput, TerraformStack } from "cdktn";
@@ -17,6 +18,7 @@ import { LambdaHandler } from "../constructs/lambda-handler";
 
 export interface AppStackProps {
 	stage: string;
+	table: DynamodbTable;
 }
 
 export class AppStack extends TerraformStack {
@@ -151,6 +153,8 @@ export class AppStack extends TerraformStack {
 		new TerraformOutput(this, "health_function_name", {
 			value: health.fn.functionName,
 		});
+		new TerraformOutput(this, "table_arn", { value: props.table.arn });
+
 		new AwsProvider(this, "aws", {
 			region: "eu-west-1",
 			defaultTags: [

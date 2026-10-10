@@ -9,6 +9,8 @@
 	"type": "module",
 	"private": true,
 	"dependencies": {
+		"@aws-sdk/client-dynamodb": "^3.1149.0",
+		"@aws-sdk/lib-dynamodb": "^3.1149.0",
 		"@election/contracts": "workspace:*",
 		"@hono/aws-lambda": "^1.0.0",
 		"hono": "^4.13.13"

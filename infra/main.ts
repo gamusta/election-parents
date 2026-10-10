@@ -11,10 +11,9 @@ new BootstrapStack(app, `${stage}-bootstrap`, {
 	githubSubPrefix: "gamusta@8771520/election-parents@1408060936",
 });
 const data = new DataStack(app, `${stage}-data`, { stage });
-const appStack = new AppStack(app, `${stage}-app`, {
+new AppStack(app, `${stage}-app`, {
 	stage,
+	table: data.table,
 });
-// No cross-stack reference yet: make the deploy order explicit.
-appStack.addDependency(data);
 
 app.synth();
