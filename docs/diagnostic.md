@@ -75,9 +75,10 @@ Chaque fiche répond à 4 questions : qu'est-ce que je vois ? qui dit non ? où 
 
 ## Bloc 2 — CI rouge après l'ajout de la stack app (à diagnostiquer)
 - **Je vois :** l'étape `cdktn diff dev-bootstrap` échoue sur `apps/api/dist/manifest.json not found`, alors que bootstrap n'a pas changé.
-- **Qui dit non :** _à compléter_
-- **Je regarde :** _à compléter_
-- **Je répare :** _à compléter_
+- **Qui dit non :** le constructeur d'`AppStack`, à la synthèse. `cdktn diff <stack>` exécute tout `main.ts`, donc instancie **toutes** les stacks ; `AppStack` lit `apps/api/dist/manifest.json` (`infra/src/stacks/app.ts:37`) et lève une erreur s'il est absent. Le runner CI part d'un checkout propre : `dist/` est ignoré par Git, donc jamais présent sans build.
+- **Je regarde :** le message (chemin + `run: pnpm --filter @election/api build`) ; la pile d'appel pointe la synthèse, pas Terraform ; en local, `rm -rf apps/api/dist && cdktn diff dev-bootstrap` reproduit.
+- **Je répare :** étape `pnpm build` dans `apps/api` avant les `cdktn diff` du workflow (commits `3ab5707`, `1320ceb`).
+- **À retenir :** synthétiser une stack, c'est synthétiser l'app entière : tout prérequis d'une stack (artefact, variable d'environnement) devient prérequis de toutes. Le CI ne voit que ce qui est commité ou construit dans le job.
 ## Bloc 2 — 15 requêtes parallèles : 10 × 200, 5 × 500
 - **Je vois :** `500 {"message":"Internal server error"}` sur 5 requêtes ; aucun log ni `REPORT` côté Lambda pour ces 5 requêtes.
 - **Qui dit non :** Lambda, en throttling (429 `TooManyRequestsException`) : la concurrence du compte est de **10** (`ConcurrentExecutions`), partagée par toutes les fonctions. API Gateway reçoit ce 429 sur l'appel `Invoke` et renvoie au client un 500 générique (échec d'intégration).
