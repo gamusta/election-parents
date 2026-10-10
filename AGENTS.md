@@ -5,15 +5,18 @@ Projet d'apprentissage AWS serverless + IaC. Objectif : « savoir reconstruire e
 Une école crée une élection et invite des parents (magic link usage unique) ; chaque parent vote une fois, vote secret ; dépouillement automatique à la clôture (représentation proportionnelle au plus fort reste).
 
 ## Répartition des rôles (IMPORTANT)
-- L'IA écrit le **code applicatif** (`apps/`, `packages/`), les tests et la doc.
+- **Le développeur code lui-même**, pas à pas, les parties nouvelles : domaine DDD (agrégats, domain events, repositories), SQS/SNS/EventBridge/Streams/Step Functions/ECS, idempotence, et tout `infra/`. L'IA guide : étapes, points de vigilance, revue précise. **Pas de code complet sauf demande explicite.**
+- L'IA génère le boilerplate : handlers simples, tests de base, front (`apps/web`), et la doc.
 - `infra/` est l'exercice du développeur : **ne pas modifier `infra/`** sauf demande explicite.
 - **Ne jamais lancer** `terraform apply|destroy`, `cdktn deploy|destroy`, ni aucune commande AWS qui crée, modifie ou supprime une ressource. Lecture seule autorisée (`plan`, `synth`, `describe`, `get`, `list`).
 - Ne jamais écrire de secret, ID de compte ou ARN en dur.
 
 ## Stack
 - Node 24 (runtime Lambda `nodejs24.x`), TypeScript strict, ESM. Lambdas **ARM64**, bundling esbuild. Le poste de dev est un Mac Intel : signaler toute dépendance avec binaire natif.
-- Backend : Hono + Zod. Front : minimal, shadcn/ui.
-- AWS (eu-west-1) : API Gateway REST + Lambda authorizer REQUEST, DynamoDB single-table, Step Functions, EventBridge Scheduler, S3 (presigned URLs), KMS, Cognito, CloudFront.
+- Backend : Hono + Zod.
+- AWS (eu-west-1) : API Gateway REST, Lambda, DynamoDB single-table (+ Streams), SQS, SNS, SES, EventBridge (bus, Pipes, Scheduler), Step Functions, ECS Fargate ARM64 + ECR, S3, CloudWatch. Hors périmètre actuel : Cognito, authorizer, KMS JWT, VPC sur mesure, CloudFront.
+- Front : React + TanStack (Router, Query, Form), Zustand, shadcn/ui.
+- Tests : Vitest ; BDD en Gherkin (`*.feature`) via `@amiceli/vitest-cucumber`.
 - IaC : cdktn (TypeScript → Terraform). Versions d'outils épinglées dans `mise.toml`.
 - Lint/format : Biome. Tests : Vitest.
 
@@ -22,7 +25,7 @@ Une école crée une élection et invite des parents (magic link usage unique) ;
 apps/api          Handlers Lambda (Hono) — un dossier par handler
 apps/web          Front (S3 privé + CloudFront OAC)
 packages/contracts Schémas Zod (contrat HTTP) api ↔ web
-packages/kernel   Shared kernel DDD (Result, DomainEvent, AggregateRoot)
+packages/kernel   Shared kernel DDD (Result ; DomainEvent et AggregateRoot à venir)
 packages/<ctx>    Bounded contexts (voting, plus tard school, reporting) : domain / application / infrastructure
 infra/            Stacks cdktn : bootstrap / data / network / app
 docs/             plan.md, diagnostic.md, adr/
@@ -41,6 +44,14 @@ docs/             plan.md, diagnostic.md, adr/
 - **Un seul vote** : `TransactWriteItems` = `PARTICIPATION#voter` (condition `attribute_not_exists`) + `BALLOT#uuid`. Idempotence via `ClientRequestToken`.
 - Invitation : token aléatoire, seul son hash est stocké, consommé par écriture conditionnelle.
 - Ne jamais logger de token, JWT, bulletin en clair ou PII.
+
+## Règles event-driven
+- Tout consumer est **idempotent**, garanti par la base (écriture conditionnelle ou clé de dédup), jamais par un check applicatif.
+- Livraison supposée **at-least-once et dans le désordre** : transitions d'état monotones, doublons ignorés silencieusement.
+- **Jamais de PII, de token ni de donnée de vote dans un message** (SQS, SNS, EventBridge, Streams) : identifiants seulement.
+- Aucun événement ne relie un électeur à un bulletin, ni par contenu ni par horodatage. `BallotCast` ne sort pas du contexte Voting.
+- Toute file a une DLQ et une alarme ; tout consumer SQS Lambda active `ReportBatchItemFailures`.
+- Un événement est versionné (`type`, `version`) ; un consumer ignore les versions inconnues.
 
 ## Commandes
 - `mise install` (toujours en premier) · `pnpm install` · `pnpm lint` · `pnpm test`

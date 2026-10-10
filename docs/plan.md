@@ -1,7 +1,7 @@
 # Plan — prépa test archi PayFit (5 jours × 8 h)
 
 Objectif : savoir **concevoir, justifier et diagnostiquer** une architecture DDD + event-driven sur AWS, en anglais, au tableau.
-Hypothèse de calendrier : J1 = lundi 12/10, J5 = vendredi 16/10. Si le test tombe avant, J5 remonte à la veille du test.
+Calendrier : test dans 5 jours → J5 = veille du test.
 
 Cycle de chaque bloc : déployer → observer → modifier → casser → diagnostiquer → corriger.
 Critère de réussite : « je sais expliquer la panne » **et** « je sais justifier le choix en 2 minutes, en anglais ».
@@ -12,9 +12,24 @@ Critère de réussite : « je sais expliquer la panne » **et** « je sais justi
 | 0:00–0:45 | Mock archi en anglais (Claude = architecte PayFit) : un cas, relances, challenge ; corrections d'anglais à la fin |
 | 0:45–5:30 | Socle du jour (je code le nouveau, l'IA génère le boilerplate) |
 | 5:30–6:30 | Piste React (TanStack Router/Query/Form, Zustand, hooks) sur `apps/web` |
-| 6:30–7:30 | Bonus ou rattrapage |
+| 6:30–7:30 | **Test cumulatif du jour** (30-60 min) puis rattrapage |
 | 7:30–8:00 | `diagnostic.md`, ADR du jour, résumé de clôture |
 | Au fil de l'eau | 10 réflexes d'expert → `docs/reflexes.md` |
+
+## Test cumulatif quotidien (30-60 min, en fin de journée)
+Simulation du test PayFit sur **tout ce qui a été vu depuis J1**, pas seulement le jour même. Format, à la façon d'un entretien réel :
+1. Design (20-30 min) : un cas nouveau, au tableau, en anglais ; je pose les contextes, les flux, les garanties.
+2. Questions rapides (10 min) : 5 questions de fond tirées des jours précédents (ex. « pourquoi pas FIFO ? », « que se passe-t-il au redrive ? »).
+3. Debug (10-15 min) : un symptôme (log, métrique, comportement) à diagnostiquer à voix haute.
+4. Débrief (5 min) : note sur 4 axes (modélisation, garanties de livraison, opérabilité, communication), 3 points à retravailler, reportés dans `docs/mock.md`.
+
+| Jour | Périmètre du test |
+|---|---|
+| J1 | DDD, agrégats, BDD |
+| J2 | J1 + idempotence, transactions, TDD |
+| J3 | J1-J2 + SQS, DLQ, SNS, alarmes |
+| J4 | J1-J3 + at-least-once, outbox, EventBridge, CQRS |
+| J5 | Tout, en condition réelle (remplacé par la répétition générale de 2 h) |
 
 ## Pratiques transverses
 | Pratique | Où | Ce que je dois savoir défendre |
@@ -31,7 +46,7 @@ Critère de réussite : « je sais expliquer la panne » **et** « je sais justi
 | SNS | J3, J4 | Topic d'alarmes → email ; SES → SNS → SQS (fan-out, filter policy) |
 | CloudWatch | J2–J5 | Logs Insights, métriques EMF, alarmes (DLQ, âge du plus vieux message, erreurs), dashboard |
 | S3 | J5 | PV de dépouillement (chiffré, versionné), presigned GET |
-| ECS Fargate | J5 | Génération du PV lancée par Step Functions (`runTask.sync`), comparaison Lambda vs ECS |
+| ECR + ECS Fargate (ARM64) | J5 | Service worker Reporting qui consomme une file SQS (scale-to-zero sur le backlog), génère le PV ; comparaison Lambda vs ECS |
 | DynamoDB, EventBridge (Pipes, Scheduler), Step Functions, SES, IAM | J1–J5 | Voir les jours |
 
 ## Fils rouges
@@ -108,13 +123,13 @@ Critère : je sais rendre idempotent un consumer qui reçoit doublons et désord
 - Autonomie : ajouter une règle EventBridge et son consumer.
 - Réflexes : observabilité en CLI.
 
-## J5 — Orchestration, ECS, S3 + répétition générale
+## J5 — Orchestration + chorégraphie sur ECS, S3 + répétition générale
 Critère : je sais justifier orchestration vs chorégraphie et Lambda vs ECS sur un cas donné, et dire ce qui est rejoué après un échec.
-- Matin (4 h) :
-  - EventBridge Scheduler → Step Functions Standard (nom d'exécution = `electionId`) : `CloseElection` → comptage → `SeatAllocator` (Lambda) → génération du PV sur **ECS Fargate** (`runTask.sync`, ARM64, image ECR) → **S3** (SSE, versioning, presigned GET) → `ElectionClosed` (intégration directe EventBridge).
-  - Retry/Catch, redrive ; logs de la tâche ECS dans CloudWatch.
-  - ADR-0012 (orchestration vs chorégraphie) et ADR-0014 (Lambda vs ECS Fargate).
-- Pannes : double déclenchement ; échec transitoire puis permanent ; état non idempotent rejoué au redrive ; tâche ECS sans IP publique (pull ECR impossible) ; rôle d'exécution vs rôle de tâche ECS.
+- Matin (4 h) — les deux styles dans le même flux :
+  - **Orchestration** (Voting, 2 h) : EventBridge Scheduler → Step Functions Standard (nom d'exécution = `electionId`) : `CloseElection` → comptage → `SeatAllocator` (Lambda) → résultats en base → `ElectionClosed` (intégration directe EventBridge). Retry/Catch, redrive.
+  - **Chorégraphie** (Reporting, 2 h) : règle EventBridge → SQS → **service ECS Fargate** (ARM64, image ECR construite par `docker buildx --platform linux/arm64`) : long polling, extension de visibilité, arrêt propre sur `SIGTERM`, idempotence par `electionId` → PV dans **S3** (SSE, versioning, presigned GET). Autoscaling sur le backlog SQS, min 0 ; logs `awslogs` dans CloudWatch.
+  - ADR-0012 (orchestration vs chorégraphie) et ADR-0014 (Lambda vs ECS Fargate pour un consumer).
+- Pannes : double déclenchement ; échec transitoire puis permanent ; état non idempotent rejoué au redrive ; tâche ECS sans IP publique (pull ECR impossible) ; rôle d'exécution vs rôle de tâche ; image x86 sur tâche ARM64 (`exec format error`) ; tâche tuée pendant un traitement (message réapparu).
 - Après-midi : répétition générale 2 h en anglais (*payment webhook processing* au tableau, 2 tours + débrief) ; 30 min relecture ADR + diagnostic.
 - Réflexes : top 10 de la semaine + raccourcis de l'outil de dessin.
 - Fin : `destroy` app après le test (data gardée si utile) ; supprimer les images ECR.
