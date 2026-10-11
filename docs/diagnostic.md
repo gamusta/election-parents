@@ -137,3 +137,26 @@ Chaque fiche répond à 4 questions : qu'est-ce que je vois ? qui dit non ? où 
 - **Qui dit non :** la fenêtre de temps : l'appel datait de plus de 5 min (et les logs sont en UTC, Paris = UTC+2).
 - **Je regarde :** relancer sans `grep`, avec `--since 15m` ; convertir l'heure locale en UTC.
 - **Je répare :** élargir la fenêtre, ou filtrer par `requestId` avec `aws logs filter-log-events --filter-pattern '"<requestId>"'`. Penser aussi au délai de livraison des logs (jusqu'à quelques minutes).
+## Bloc 3 — `cdktn diff dev-app` : `Unsupported attribute … cross-stack-output-…`
+- **Je vois :** le plan de `app` échoue : `terraform_remote_state…outputs is object with 3 attributes`, pas de `cross-stack-output-…arn`.
+- **Qui dit non :** le state de `data` dans S3 : `app` lit le state **déployé** de `data`, pas son code. Utiliser `props.table.arn` dans `app` ajoute un output généré à `data`, qui n'existe qu'après un deploy de `data`.
+- **Je regarde :** `cdktn diff dev-data` → 0 ressource, seulement « Changes to Outputs ».
+- **Je répare :** `cdktn deploy dev-data dev-app` (ordre respecté). `deploy dev-app` seul est refusé (« dependencies not included »).
+
+## Bloc 3 — `403 {"message":"Missing Authentication Token"}`
+- **Je vois :** 403 sur une URL, sans aucun log Lambda.
+- **Qui dit non :** API Gateway REST : aucune ressource ne correspond au chemin. Rien à voir avec l'authentification.
+- **Je regarde :** la route existe-t-elle dans la console (Resources) ? Le stage pointe-t-il sur le dernier deployment ?
+- **Je répare :** corriger le chemin, ou ajouter les ids de ressource/méthode/intégration dans `triggers.redeployment` puis redéployer.
+
+## Bloc 3 — CORS : `curl` 200, mais pas d'`access-control-allow-origin`
+- **Je vois :** `curl -si -H "Origin: http://localhost:5173" …` répond 200 sans en-tête CORS ; le navigateur affichera « blocked by CORS policy ».
+- **Qui dit non :** la Lambda (proxy) : `createApp` n'active CORS que si `CORS_ORIGIN` est défini, et la variable n'était pas passée dans `environment`.
+- **Je regarde :** `aws lambda get-function-configuration --query Environment` ; vérifier le CORS avec `-H Origin` + `grep -i access-control`, jamais au seul code HTTP.
+- **Je répare :** `CORS_ORIGIN: props.corsOrigin` dans l'`environment` du handler. Les erreurs d'API Gateway (403, 429) ont besoin en plus de gateway responses `DEFAULT_4XX`/`DEFAULT_5XX`.
+
+## Bloc 3 — Logs Insights : `filter msg = "access"` ne renvoie rien
+- **Je vois :** colonnes vides ; le JSON applicatif apparaît comme une chaîne dans `message`.
+- **Qui dit non :** `logFormat: "JSON"` de la Lambda : le runtime enveloppe chaque `console.log` dans son propre JSON, notre JSON devient une chaîne. Plus de ligne `REPORT` texte non plus (`type = "platform.report"`, `record.metrics.initDurationMs`).
+- **Je regarde :** déplier une ligne `level = "INFO"` ; erreur `Ephemeral field is already defined` = un `fields` après `parse` (utiliser `display`).
+- **Je répare :** logger qui écrit lui-même sur stdout (Powertools Logger) → champs au premier niveau : `filter message = "access" | stats count(*) by status`.
