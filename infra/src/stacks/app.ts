@@ -84,6 +84,18 @@ export class AppStack extends TerraformStack {
 			],
 		});
 
+		const castVote = new LambdaHandler(this, "cast-vote", {
+			stage: props.stage,
+			name: "cast-vote",
+			distDir,
+			manifest,
+			environment: {
+				CORS_ORIGIN: props.corsOrigin,
+				POWERTOOLS_METRICS_NAMESPACE: `ElectionParents/${props.stage}`,
+			},
+			memorySize: 256,
+		});
+
 		const api = new ApiGatewayRestApi(this, "api", {
 			name: `${props.stage}-api`,
 			endpointConfiguration: { types: ["REGIONAL"] },
@@ -138,6 +150,30 @@ export class AppStack extends TerraformStack {
 			pathPart: "{id}",
 		});
 
+		const votesResource = new ApiGatewayResource(this, "votes_resource", {
+			restApiId: api.id,
+			parentId: electionResource.id,
+			pathPart: "votes",
+		});
+
+		const castVoteRoute = new LambdaRoute(this, "cast_vote_route", {
+			api,
+			resourceId: votesResource.id,
+			httpMethod: "POST",
+			sourcePath: "elections/*/votes",
+			handler: castVote,
+			requestParameters: { "method.request.path.id": true },
+		});
+
+		// Browser preflight for the JSON POST, answered by Hono's cors middleware.
+		const castVotePreflight = new LambdaRoute(this, "cast_vote_preflight", {
+			api,
+			resourceId: votesResource.id,
+			httpMethod: "OPTIONS",
+			sourcePath: "elections/*/votes",
+			handler: castVote,
+		});
+
 		const getElectionRoute = new LambdaRoute(this, "get_election_route", {
 			api,
 			resourceId: electionResource.id,
@@ -159,6 +195,8 @@ export class AppStack extends TerraformStack {
 						...["DEFAULT_4XX", "DEFAULT_5XX"].map(
 							(t) => `${t}:${props.corsOrigin}`,
 						),
+						...castVoteRoute.triggerIds,
+						...castVotePreflight.triggerIds,
 					]),
 				),
 			},
@@ -230,6 +268,10 @@ export class AppStack extends TerraformStack {
 		});
 		new TerraformOutput(this, "voting_read_function_name", {
 			value: votingRead.fn.functionName,
+		});
+
+		new TerraformOutput(this, "cast_vote_function_name", {
+			value: castVote.fn.functionName,
 		});
 
 		new AwsProvider(this, "aws", {

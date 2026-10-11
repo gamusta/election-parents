@@ -13,6 +13,13 @@ export const ElectionResponseSchema = z.object({
 });
 export type ElectionResponse = z.infer<typeof ElectionResponseSchema>;
 
+// Client-generated, reused on retry: same key = same vote (ClientRequestToken).
+export const IdempotencyKeySchema = z.uuid();
+
+// The ballot carries the choice only: no voter id, no timestamp.
+export const CastVoteRequestSchema = z.strictObject({ listId: z.uuid() });
+export type CastVoteRequest = z.infer<typeof CastVoteRequestSchema>;
+
 // Query strings are text: digits only (rejects "", " ", "1e3", "0x10", "1.5", "-1").
 export const SleepMsSchema = z
 	.string()

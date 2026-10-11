@@ -8,7 +8,7 @@ import type { LambdaHandler } from "./lambda-handler";
 export interface LambdaRouteProps {
 	api: ApiGatewayRestApi;
 	resourceId: string;
-	httpMethod: "GET" | "POST";
+	httpMethod: "GET" | "POST" | "OPTIONS";
 	// Path in the execute-api ARN, parameters as wildcards (e.g. "elections/*").
 	sourcePath: string;
 	handler: LambdaHandler;
