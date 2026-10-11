@@ -9,6 +9,7 @@
 	"type": "module",
 	"private": true,
 	"dependencies": {
+		"@aws-lambda-powertools/logger": "^2.36.0",
 		"@aws-sdk/client-dynamodb": "^3.1149.0",
 		"@aws-sdk/lib-dynamodb": "^3.1149.0",
 		"@election/contracts": "workspace:*",

@@ -15,7 +15,9 @@ describe("createApp", () => {
 	});
 
 	it("returns 500 internal_error without leaking the error", async () => {
-		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+		const error = vi
+			.spyOn(process.stderr, "write")
+			.mockImplementation(() => true);
 		const app = createApp().get("/boom", () => {
 			throw new Error("secret detail");
 		});
@@ -30,20 +32,26 @@ describe("createApp", () => {
 	});
 
 	it("logs the route template, not the URL", async () => {
-		const log = vi.spyOn(console, "log").mockImplementation(() => {});
+		const log = vi
+			.spyOn(process.stdout, "write")
+			.mockImplementation(() => true);
 		const app = createApp().get("/items/:id", (c) => c.text("ok"));
 
 		await app.request("/items/abc?token=xyz");
 		await app.request("/missing");
 
-		const [hit, miss] = log.mock.calls.map(([line]) => JSON.parse(line));
+		const [hit, miss] = log.mock.calls.map(([line]) =>
+			JSON.parse(String(line)),
+		);
 		expect(hit).toMatchObject({
-			msg: "access",
+			message: "access",
 			method: "GET",
 			routePath: "/items/:id",
 			status: 200,
 		});
-		expect(miss).toMatchObject({ routePath: null, status: 404 });
+		expect(miss).toMatchObject({ status: 404 });
+		// Powertools drops null fields: unmatched routes carry no routePath.
+		expect(miss).not.toHaveProperty("routePath");
 		expect(log.mock.calls.flat().join()).not.toMatch(/abc|xyz/);
 	});
 
@@ -51,7 +59,7 @@ describe("createApp", () => {
 		const ORIGIN = "http://localhost:5173";
 
 		it("sends no CORS header when CORS_ORIGIN is unset", async () => {
-			vi.spyOn(console, "log").mockImplementation(() => {});
+			vi.spyOn(process.stdout, "write").mockImplementation(() => true);
 			const app = createApp().get("/x", (c) => c.text("ok"));
 
 			const res = await app.request("/x", { headers: { Origin: ORIGIN } });
@@ -60,7 +68,7 @@ describe("createApp", () => {
 		});
 
 		it("allows the configured origin on simple requests", async () => {
-			vi.spyOn(console, "log").mockImplementation(() => {});
+			vi.spyOn(process.stdout, "write").mockImplementation(() => true);
 			vi.stubEnv("CORS_ORIGIN", ORIGIN);
 			const app = createApp().get("/x", (c) => c.text("ok"));
 
@@ -70,7 +78,7 @@ describe("createApp", () => {
 		});
 
 		it("answers the preflight without reaching the route", async () => {
-			vi.spyOn(console, "log").mockImplementation(() => {});
+			vi.spyOn(process.stdout, "write").mockImplementation(() => true);
 			vi.stubEnv("CORS_ORIGIN", ORIGIN);
 			const route = vi.fn((c) => c.text("ok"));
 			const app = createApp().post("/x", route);

@@ -8,6 +8,7 @@ import {
 } from "@election/contracts";
 import { handle } from "@hono/aws-lambda";
 import { createApp } from "../../http/create-app";
+import { logger, withLogContext } from "../../http/log";
 import { proxyEvent } from "../../http/proxy-event";
 
 // Module scope survives across invocations of a warm execution environment.
@@ -88,9 +89,7 @@ export const app = createApp().get("/health", async (c) => {
 		// Not awaited: on Lambda the environment freezes after the response, so this
 		// fires during a later invocation (after thaw) — or never if it is recycled.
 		setTimeout(() => {
-			console.log(
-				JSON.stringify({ msg: "background_done", startedAtInvocation }),
-			);
+			logger.info("background_done", { startedAtInvocation });
 		}, 1000);
 	}
 	if (tag !== undefined) {
@@ -111,12 +110,11 @@ export const app = createApp().get("/health", async (c) => {
 	return c.json(body);
 });
 
-export const handler = handle(app);
+export const handler = withLogContext(handle(app));
 
 // Priming during INIT: loads Fetch classes and warms the adapter and router.
 // Unknown route → 404 (access log line visible between platform.initStart and platform.start);
 // /health state untouched. A failure is logged but never fails INIT.
 await handler(proxyEvent({ path: "/__prime", resource: "/__prime" })).catch(
-	(err: Error) =>
-		console.warn(JSON.stringify({ msg: "prime_failed", name: err.name })),
+	(err: Error) => logger.warn("prime_failed", { errorName: err.name }),
 );

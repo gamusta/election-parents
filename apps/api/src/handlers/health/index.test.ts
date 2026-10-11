@@ -23,7 +23,7 @@ const getHealth = async (query = ""): Promise<Health> => {
 beforeEach(() => {
 	vi.resetModules();
 	vi.restoreAllMocks();
-	vi.spyOn(console, "log").mockImplementation(() => {});
+	vi.spyOn(process.stdout, "write").mockImplementation(() => true);
 });
 
 describe("GET /health", () => {
@@ -70,12 +70,15 @@ describe("GET /health", () => {
 	});
 
 	it("primes during INIT with a 404 that leaves /health state untouched", async () => {
-		const log = vi.mocked(console.log);
+		const log = vi.mocked(process.stdout.write);
 		const { handler } = await import("./index");
 
 		const initLines = log.mock.calls.map(([line]) => JSON.parse(String(line)));
 		expect(initLines).toContainEqual(
-			expect.objectContaining({ msg: "access", status: 404, routePath: null }),
+			expect.objectContaining({
+				message: "access",
+				status: 404,
+			}),
 		);
 
 		const res = await handler(
@@ -169,9 +172,9 @@ describe("GET /health lab mode (LAB_MODE=1)", () => {
 
 	const backgroundLogs = () =>
 		vi
-			.mocked(console.log)
+			.mocked(process.stdout.write)
 			.mock.calls.map(([line]) => JSON.parse(String(line)))
-			.filter((line) => line.msg === "background_done");
+			.filter((line) => line.message === "background_done");
 
 	describe("?tag", () => {
 		it("accumulates tags across requests of one environment", async () => {
@@ -198,7 +201,10 @@ describe("GET /health lab mode (LAB_MODE=1)", () => {
 		it("never logs the tag", async () => {
 			await getHealth("?tag=secretTag42");
 
-			const logged = vi.mocked(console.log).mock.calls.flat().join("\n");
+			const logged = vi
+				.mocked(process.stdout.write)
+				.mock.calls.flat()
+				.join("\n");
 			expect(logged).not.toContain("secretTag42");
 		});
 
@@ -243,7 +249,10 @@ describe("GET /health lab mode (LAB_MODE=1)", () => {
 				expect(backgroundLogs()).toEqual([]);
 				await vi.advanceTimersByTimeAsync(1);
 				expect(backgroundLogs()).toEqual([
-					{ msg: "background_done", startedAtInvocation: 1 },
+					expect.objectContaining({
+						message: "background_done",
+						startedAtInvocation: 1,
+					}),
 				]);
 			} finally {
 				vi.useRealTimers();
@@ -258,8 +267,14 @@ describe("GET /health lab mode (LAB_MODE=1)", () => {
 				await vi.advanceTimersByTimeAsync(1000);
 
 				expect(backgroundLogs()).toEqual([
-					{ msg: "background_done", startedAtInvocation: 1 },
-					{ msg: "background_done", startedAtInvocation: 2 },
+					expect.objectContaining({
+						message: "background_done",
+						startedAtInvocation: 1,
+					}),
+					expect.objectContaining({
+						message: "background_done",
+						startedAtInvocation: 2,
+					}),
 				]);
 			} finally {
 				vi.useRealTimers();
@@ -366,7 +381,10 @@ describe("GET /health without LAB_MODE", () => {
 			expect(body).not.toHaveProperty("seenTags");
 			expect(body).not.toHaveProperty("cpuMs");
 			expect(vi.getTimerCount()).toBe(0);
-			const logged = vi.mocked(console.log).mock.calls.flat().join("\n");
+			const logged = vi
+				.mocked(process.stdout.write)
+				.mock.calls.flat()
+				.join("\n");
 			expect(logged).not.toContain("background_done");
 		} finally {
 			vi.useRealTimers();

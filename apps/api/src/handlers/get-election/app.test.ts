@@ -27,7 +27,7 @@ const fakeDb = (item?: Record<string, unknown>) => ({
 });
 
 beforeEach(() => {
-	vi.spyOn(console, "log").mockImplementation(() => {});
+	vi.spyOn(process.stdout, "write").mockImplementation(() => true);
 });
 
 describe("GET /elections/:id", () => {
@@ -83,7 +83,7 @@ describe("GET /elections/:id", () => {
 	});
 
 	it("returns 500 internal_error when DynamoDB fails", async () => {
-		vi.spyOn(console, "error").mockImplementation(() => {});
+		vi.spyOn(process.stdout, "write").mockImplementation(() => true);
 		const db = { send: vi.fn().mockRejectedValue(new Error("throttled")) };
 		const res = await buildApp({ db, tableName: "t" }).request(
 			`/elections/${VALID_ID}`,

@@ -61,7 +61,10 @@ export class AppStack extends TerraformStack {
 			stage: props.stage,
 			distDir,
 			manifest,
-			environment: { TABLE_NAME: props.table.name, CORS_ORIGIN: props.corsOrigin },
+			environment: {
+				TABLE_NAME: props.table.name,
+				CORS_ORIGIN: props.corsOrigin,
+			},
 			memorySize: 256,
 			statements: [
 				{
@@ -179,7 +182,7 @@ export class AppStack extends TerraformStack {
 						getElectionIntegration.id,
 						...["DEFAULT_4XX", "DEFAULT_5XX"].map(
 							(t) => `${t}:${props.corsOrigin}`,
-					)
+						),
 					]),
 				),
 			},
