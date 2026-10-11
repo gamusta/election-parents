@@ -54,6 +54,30 @@ export class AppStack extends TerraformStack {
 			memorySize: 1024,
 		});
 
+		const getElection = new LambdaHandler(this, "get-election", {
+			name: "get-election",
+			stage: props.stage,
+			distDir,
+			manifest,
+			environment: { TABLE_NAME: props.table.name },
+			memorySize: 256,
+			statements: [
+				{
+					effect: "Allow",
+					actions: ["dynamodb:GetItem"],
+					resources: [props.table.arn],
+					// Restricts the role to election partitions, whatever the code asks.
+					condition: [
+						{
+							test: "ForAllValues:StringLike",
+							variable: "dynamodb:LeadingKeys",
+							values: ["ELECTION#*"],
+						},
+					],
+				},
+			],
+		});
+
 		const api = new ApiGatewayRestApi(this, "api", {
 			name: `${props.stage}-api`,
 			endpointConfiguration: { types: ["REGIONAL"] },
@@ -92,6 +116,54 @@ export class AppStack extends TerraformStack {
 			sourceArn: `${api.executionArn}/*/GET/health`,
 		});
 
+		const electionsResource = new ApiGatewayResource(
+			this,
+			"elections_resource",
+			{
+				restApiId: api.id,
+				parentId: api.rootResourceId,
+				pathPart: "elections",
+			},
+		);
+
+		const electionResource = new ApiGatewayResource(this, "election_resource", {
+			restApiId: api.id,
+			parentId: electionsResource.id,
+			pathPart: "{id}",
+		});
+
+		const getElectionMethod = new ApiGatewayMethod(
+			this,
+			"get_election_method",
+			{
+				restApiId: api.id,
+				resourceId: electionResource.id,
+				httpMethod: "GET",
+				authorization: "NONE",
+				requestParameters: { "method.request.path.id": true },
+			},
+		);
+
+		const getElectionIntegration = new ApiGatewayIntegration(
+			this,
+			"get_election_integration",
+			{
+				restApiId: api.id,
+				resourceId: electionResource.id,
+				httpMethod: getElectionMethod.httpMethod,
+				type: "AWS_PROXY",
+				integrationHttpMethod: "POST",
+				uri: getElection.fn.invokeArn,
+			},
+		);
+
+		new LambdaPermission(this, "get_election_api_permission", {
+			functionName: getElection.fn.functionName,
+			action: "lambda:InvokeFunction",
+			principal: "apigateway.amazonaws.com",
+			sourceArn: `${api.executionArn}/*/GET/elections/*`,
+		});
+
 		const deployment = new ApiGatewayDeployment(this, "api_deployment", {
 			restApiId: api.id,
 			triggers: {
@@ -100,6 +172,9 @@ export class AppStack extends TerraformStack {
 						healthResource.id,
 						healthMethod.id,
 						healthIntegration.id,
+						electionResource.id,
+						getElectionMethod.id,
+						getElectionIntegration.id,
 					]),
 				),
 			},
@@ -153,7 +228,9 @@ export class AppStack extends TerraformStack {
 		new TerraformOutput(this, "health_function_name", {
 			value: health.fn.functionName,
 		});
-		new TerraformOutput(this, "table_arn", { value: props.table.arn });
+		new TerraformOutput(this, "get_election_function_name", {
+			value: getElection.fn.functionName,
+		});
 
 		new AwsProvider(this, "aws", {
 			region: "eu-west-1",
