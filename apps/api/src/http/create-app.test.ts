@@ -3,6 +3,7 @@ import { createApp } from "./create-app";
 
 afterEach(() => {
 	vi.restoreAllMocks();
+	vi.unstubAllEnvs();
 });
 
 describe("createApp", () => {
@@ -44,5 +45,50 @@ describe("createApp", () => {
 		});
 		expect(miss).toMatchObject({ routePath: null, status: 404 });
 		expect(log.mock.calls.flat().join()).not.toMatch(/abc|xyz/);
+	});
+
+	describe("CORS", () => {
+		const ORIGIN = "http://localhost:5173";
+
+		it("sends no CORS header when CORS_ORIGIN is unset", async () => {
+			vi.spyOn(console, "log").mockImplementation(() => {});
+			const app = createApp().get("/x", (c) => c.text("ok"));
+
+			const res = await app.request("/x", { headers: { Origin: ORIGIN } });
+
+			expect(res.headers.get("access-control-allow-origin")).toBeNull();
+		});
+
+		it("allows the configured origin on simple requests", async () => {
+			vi.spyOn(console, "log").mockImplementation(() => {});
+			vi.stubEnv("CORS_ORIGIN", ORIGIN);
+			const app = createApp().get("/x", (c) => c.text("ok"));
+
+			const res = await app.request("/x", { headers: { Origin: ORIGIN } });
+
+			expect(res.headers.get("access-control-allow-origin")).toBe(ORIGIN);
+		});
+
+		it("answers the preflight without reaching the route", async () => {
+			vi.spyOn(console, "log").mockImplementation(() => {});
+			vi.stubEnv("CORS_ORIGIN", ORIGIN);
+			const route = vi.fn((c) => c.text("ok"));
+			const app = createApp().post("/x", route);
+
+			const res = await app.request("/x", {
+				method: "OPTIONS",
+				headers: {
+					Origin: ORIGIN,
+					"Access-Control-Request-Method": "POST",
+					"Access-Control-Request-Headers": "content-type",
+				},
+			});
+
+			expect(res.status).toBe(204);
+			expect(res.headers.get("access-control-allow-origin")).toBe(ORIGIN);
+			expect(res.headers.get("access-control-allow-methods")).toContain("POST");
+			expect(res.headers.get("access-control-max-age")).toBe("600");
+			expect(route).not.toHaveBeenCalled();
+		});
 	});
 });

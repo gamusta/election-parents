@@ -14,6 +14,7 @@ const data = new DataStack(app, `${stage}-data`, { stage });
 new AppStack(app, `${stage}-app`, {
 	stage,
 	table: data.table,
+	corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
 });
 
 app.synth();

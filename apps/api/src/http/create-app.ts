@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { createMiddleware } from "hono/factory";
 import { matchedRoutes } from "hono/route";
 
@@ -22,6 +23,20 @@ const accessLog = createMiddleware(async (c, next) => {
 export const createApp = () => {
 	const app = new Hono();
 	app.use("*", accessLog);
+	// Exact origin from env (e.g. http://localhost:5173); unset = no CORS headers, never "*".
+	const corsOrigin = process.env.CORS_ORIGIN;
+	if (corsOrigin) {
+		app.use(
+			"*",
+			cors({
+				origin: corsOrigin,
+				allowMethods: ["GET", "POST", "OPTIONS"],
+				allowHeaders: ["Content-Type", "Idempotency-Key"],
+				// Browser caches the preflight: fewer OPTIONS invocations.
+				maxAge: 600,
+			}),
+		);
+	}
 	app.notFound((c) => c.json({ error: "not_found" }, 404));
 	app.onError((err, c) => {
 		// Error name only: messages may embed user input.

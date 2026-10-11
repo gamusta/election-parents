@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { ApiGatewayDeployment } from "@cdktn/provider-aws/lib/api-gateway-deployment";
+import { ApiGatewayGatewayResponse } from "@cdktn/provider-aws/lib/api-gateway-gateway-response";
 import { ApiGatewayIntegration } from "@cdktn/provider-aws/lib/api-gateway-integration";
 import { ApiGatewayMethod } from "@cdktn/provider-aws/lib/api-gateway-method";
 import { ApiGatewayMethodSettings } from "@cdktn/provider-aws/lib/api-gateway-method-settings";
@@ -19,6 +20,7 @@ import { LambdaHandler } from "../constructs/lambda-handler";
 export interface AppStackProps {
 	stage: string;
 	table: DynamodbTable;
+	corsOrigin: string;
 }
 
 export class AppStack extends TerraformStack {
@@ -59,7 +61,7 @@ export class AppStack extends TerraformStack {
 			stage: props.stage,
 			distDir,
 			manifest,
-			environment: { TABLE_NAME: props.table.name },
+			environment: { TABLE_NAME: props.table.name, CORS_ORIGIN: props.corsOrigin },
 			memorySize: 256,
 			statements: [
 				{
@@ -175,6 +177,9 @@ export class AppStack extends TerraformStack {
 						electionResource.id,
 						getElectionMethod.id,
 						getElectionIntegration.id,
+						...["DEFAULT_4XX", "DEFAULT_5XX"].map(
+							(t) => `${t}:${props.corsOrigin}`,
+					)
 					]),
 				),
 			},
@@ -221,6 +226,22 @@ export class AppStack extends TerraformStack {
 			},
 			dependsOn: [execLogs],
 		});
+
+		// Errors produced by API Gateway itself (403, 429 throttling…) never reach
+		// the Lambda: without these headers the browser reports a CORS error instead.
+		for (const responseType of ["DEFAULT_4XX", "DEFAULT_5XX"]) {
+			new ApiGatewayGatewayResponse(
+				this,
+				`cors_${responseType.toLowerCase()}`,
+				{
+					restApiId: api.id,
+					responseType,
+					responseParameters: {
+						"gatewayresponse.header.Access-Control-Allow-Origin": `'${props.corsOrigin}'`,
+					},
+				},
+			);
+		}
 
 		new TerraformOutput(this, "api_url", {
 			value: apiStage.invokeUrl,
