@@ -16,6 +16,7 @@ import { Fn, S3Backend, TerraformOutput, TerraformStack } from "cdktn";
 import type { Construct } from "constructs";
 import type { Manifest } from "../constructs/lambda-handler";
 import { LambdaHandler } from "../constructs/lambda-handler";
+import { LambdaRoute } from "../constructs/lambda-route";
 
 export interface AppStackProps {
 	stage: string;
@@ -56,8 +57,8 @@ export class AppStack extends TerraformStack {
 			memorySize: 1024,
 		});
 
-		const getElection = new LambdaHandler(this, "get-election", {
-			name: "get-election",
+		const votingRead = new LambdaHandler(this, "voting-read", {
+			name: "voting-read",
 			stage: props.stage,
 			distDir,
 			manifest,
@@ -137,36 +138,13 @@ export class AppStack extends TerraformStack {
 			pathPart: "{id}",
 		});
 
-		const getElectionMethod = new ApiGatewayMethod(
-			this,
-			"get_election_method",
-			{
-				restApiId: api.id,
-				resourceId: electionResource.id,
-				httpMethod: "GET",
-				authorization: "NONE",
-				requestParameters: { "method.request.path.id": true },
-			},
-		);
-
-		const getElectionIntegration = new ApiGatewayIntegration(
-			this,
-			"get_election_integration",
-			{
-				restApiId: api.id,
-				resourceId: electionResource.id,
-				httpMethod: getElectionMethod.httpMethod,
-				type: "AWS_PROXY",
-				integrationHttpMethod: "POST",
-				uri: getElection.fn.invokeArn,
-			},
-		);
-
-		new LambdaPermission(this, "get_election_api_permission", {
-			functionName: getElection.fn.functionName,
-			action: "lambda:InvokeFunction",
-			principal: "apigateway.amazonaws.com",
-			sourceArn: `${api.executionArn}/*/GET/elections/*`,
+		const getElectionRoute = new LambdaRoute(this, "get_election_route", {
+			api,
+			resourceId: electionResource.id,
+			httpMethod: "GET",
+			sourcePath: "elections/*",
+			handler: votingRead,
+			requestParameters: { "method.request.path.id": true },
 		});
 
 		const deployment = new ApiGatewayDeployment(this, "api_deployment", {
@@ -177,9 +155,7 @@ export class AppStack extends TerraformStack {
 						healthResource.id,
 						healthMethod.id,
 						healthIntegration.id,
-						electionResource.id,
-						getElectionMethod.id,
-						getElectionIntegration.id,
+						...getElectionRoute.triggerIds,
 						...["DEFAULT_4XX", "DEFAULT_5XX"].map(
 							(t) => `${t}:${props.corsOrigin}`,
 						),
@@ -252,8 +228,8 @@ export class AppStack extends TerraformStack {
 		new TerraformOutput(this, "health_function_name", {
 			value: health.fn.functionName,
 		});
-		new TerraformOutput(this, "get_election_function_name", {
-			value: getElection.fn.functionName,
+		new TerraformOutput(this, "voting_read_function_name", {
+			value: votingRead.fn.functionName,
 		});
 
 		new AwsProvider(this, "aws", {

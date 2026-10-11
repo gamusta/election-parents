@@ -33,7 +33,7 @@ docs/             plan.md, diagnostic.md, adr/
 ```
 
 ## Conventions
-- **Un handler = une Lambda = un rôle IAM.** Un handler n'accède qu'aux ressources de son propre rôle.
+- **Une Lambda = un rôle IAM = un profil de droits** (ADR-0017). Les routes HTTP de mêmes droits partagent une Lambda (ex. `voting-read`) ; `cast-vote` est la seule Lambda qui écrit un bulletin. Tout consumer, worker ou webhook a sa propre Lambda.
 - Toute entrée externe est validée par un schéma Zod de `packages/contracts`.
 - Configuration par variables d'environnement (noms de table, ARN de clé…), jamais en dur.
 - Noms de ressources préfixés par `stage`.
