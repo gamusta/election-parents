@@ -3,6 +3,7 @@ import { CloudfrontFunction } from "@cdktn/provider-aws/lib/cloudfront-function"
 import { CloudfrontOriginAccessControl } from "@cdktn/provider-aws/lib/cloudfront-origin-access-control";
 import { DataAwsCallerIdentity } from "@cdktn/provider-aws/lib/data-aws-caller-identity";
 import { DataAwsCloudfrontCachePolicy } from "@cdktn/provider-aws/lib/data-aws-cloudfront-cache-policy";
+import { DataAwsCloudfrontOriginRequestPolicy } from "@cdktn/provider-aws/lib/data-aws-cloudfront-origin-request-policy";
 import { DataAwsIamPolicyDocument } from "@cdktn/provider-aws/lib/data-aws-iam-policy-document";
 import { S3Bucket } from "@cdktn/provider-aws/lib/s3-bucket";
 import { S3BucketPolicy } from "@cdktn/provider-aws/lib/s3-bucket-policy";
@@ -20,8 +21,18 @@ const SPA_REWRITE = `function handler(event) {
       return request;
 }`;
 
+// API Gateway resources have no /api prefix; originPath then adds /<stage>.
+const API_STRIP_PREFIX = `function handler(event) {
+    var request = event.request;
+    request.uri = request.uri.replace(/^\\/api/, "") || "/";
+    return request;
+}`;
+
 export interface WebDistributionProps {
 	stage: string;
+	// Regional REST API host, e.g. <id>.execute-api.<region>.amazonaws.com
+	apiDomainName: string;
+	apiStageName: string;
 }
 
 export class WebDistribution extends Construct {
@@ -61,6 +72,29 @@ export class WebDistribution extends Construct {
 			publish: true,
 		});
 
+		const apiStripPrefix = new CloudfrontFunction(this, "api_strip_prefix", {
+			name: `${props.stage}-api-strip-prefix`,
+			runtime: "cloudfront-js-2.0",
+			code: API_STRIP_PREFIX,
+			publish: true,
+		});
+
+		const cachingDisabled = new DataAwsCloudfrontCachePolicy(
+			this,
+			"caching_disabled",
+			{ name: "Managed-CachingDisabled" },
+		);
+
+		// Forwards headers, query strings and cookies, but not Host:
+		// API Gateway routes on Host/SNI and rejects the CloudFront domain.
+		const allViewerExceptHost = new DataAwsCloudfrontOriginRequestPolicy(
+			this,
+			"all_viewer_except_host",
+			{ name: "Managed-AllViewerExceptHostHeader" },
+		);
+
+		const apiOriginId = "api";
+
 		// Honors origin Cache-Control (set per file at upload, phase 4).
 		const cachingOptimized = new DataAwsCloudfrontCachePolicy(
 			this,
@@ -83,6 +117,17 @@ export class WebDistribution extends Construct {
 					domainName: this.bucket.bucketRegionalDomainName,
 					originAccessControlId: oac.id,
 				},
+				{
+					originId: apiOriginId,
+					domainName: props.apiDomainName,
+					originPath: `/${props.apiStageName}`,
+					customOriginConfig: {
+						httpPort: 80,
+						httpsPort: 443,
+						originProtocolPolicy: "https-only",
+						originSslProtocols: ["TLSv1.2"],
+					},
+				},
 			],
 			defaultCacheBehavior: {
 				targetOriginId: webOriginId,
@@ -95,6 +140,29 @@ export class WebDistribution extends Construct {
 					{ eventType: "viewer-request", functionArn: spaRewrite.arn },
 				],
 			},
+			orderedCacheBehavior: [
+				{
+					pathPattern: "/api/*",
+					targetOriginId: apiOriginId,
+					viewerProtocolPolicy: "https-only",
+					allowedMethods: [
+						"GET",
+						"HEAD",
+						"OPTIONS",
+						"PUT",
+						"POST",
+						"PATCH",
+						"DELETE",
+					],
+					cachedMethods: ["GET", "HEAD"],
+					cachePolicyId: cachingDisabled.id,
+					originRequestPolicyId: allViewerExceptHost.id,
+					compress: true,
+					functionAssociation: [
+						{ eventType: "viewer-request", functionArn: apiStripPrefix.arn },
+					],
+				},
+			],
 			restrictions: { geoRestriction: { restrictionType: "none" } },
 			viewerCertificate: { cloudfrontDefaultCertificate: true },
 		});
