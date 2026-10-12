@@ -17,6 +17,7 @@ import type { Construct } from "constructs";
 import type { Manifest } from "../constructs/lambda-handler";
 import { LambdaHandler } from "../constructs/lambda-handler";
 import { LambdaRoute } from "../constructs/lambda-route";
+import { WebDistribution } from "../constructs/web-distribution";
 
 export interface AppStackProps {
 	stage: string;
@@ -259,6 +260,16 @@ export class AppStack extends TerraformStack {
 				},
 			);
 		}
+
+		const web = new WebDistribution(this, "web", { stage: props.stage });
+
+		new TerraformOutput(this, "web_bucket_name", { value: web.bucket.bucket });
+		new TerraformOutput(this, "web_distribution_id", {
+			value: web.distribution.id,
+		});
+		new TerraformOutput(this, "web_url", {
+			value: `https://${web.distribution.domainName}`,
+		});
 
 		new TerraformOutput(this, "api_url", {
 			value: apiStage.invokeUrl,
