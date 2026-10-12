@@ -1,10 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { expect, it } from "vitest";
-import App from "./App";
+import { HomePage } from "./HomePage";
 
 it("affiche le titre", () => {
-	render(<App />);
+	render(<HomePage />);
 	expect(
-		screen.getByRole("heading", { name: "Get started" }),
+		screen.getByRole("heading", { name: "Élections" }),
 	).toBeInTheDocument();
 });
