@@ -11,6 +11,8 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
+		"@election/contracts": "workspace:*",
+		"@tanstack/react-query": "^5.104.1",
 		"@tanstack/react-router": "^1.170.42",
 		"@tanstack/router-plugin": "^1.168.43",
 		"react": "^19.2.8",
