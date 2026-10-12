@@ -17,7 +17,7 @@ Legend: `done` · `later` (deferred) · `n/a` (not applicable).
 | Infra (IaC, `stage`, budget) |        | n/a   |        |     |    |
 | Boundaries                   |        | done  |        |     |    |
 | Configuration (env, secrets) |        | done  |        |     |    |
-| Operability                  |        | later |        |     |    |
+| Operability                  |        | done  |        |     |    |
 | Conventions                  |        | done  |        |     |    |
 | Accepted debt ("Not yet")    |        | done  |        |     |    |
 | **Total time**               |        |       |        |     |    |
@@ -82,8 +82,12 @@ Target: 1 h 20 (plan, D1 afternoon).
 
 ### Operability
 
-- Later: no error tracking, no front-end logs. API logs (CloudWatch) suffice
-  for now.
+- Root `errorComponent`: generic message + retry, never `error.message`;
+  error logged to the console only.
+- Root `notFoundComponent` for unknown URLs.
+- Tested: a throwing component shows the generic page, without the error
+  text.
+- Later: error tracking (send the error to a service), front-end metrics.
 
 ### Conventions
 
