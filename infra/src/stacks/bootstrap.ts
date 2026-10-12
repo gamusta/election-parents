@@ -137,6 +137,100 @@ export class BootstrapStack extends TerraformStack {
 
 		new TerraformOutput(this, "ci_plan_role_arn", { value: ciPlanRole.arn });
 
+		const ciDeployTrust = new DataAwsIamPolicyDocument(
+			this,
+			"ci_deploy_trust",
+			{
+				statement: [
+					{
+						effect: "Allow",
+						actions: ["sts:AssumeRoleWithWebIdentity"],
+						principals: [{ type: "Federated", identifiers: [githubOidc.arn] }],
+						condition: [
+							{
+								test: "StringEquals",
+								variable: "token.actions.githubusercontent.com:aud",
+								values: ["sts.amazonaws.com"],
+							},
+							{
+								// Jobs with `environment: <stage>` get this subject, not ref:refs/heads/main.
+								test: "StringEquals",
+								variable: "token.actions.githubusercontent.com:sub",
+								values: [
+									`repo:${props.githubSubPrefix}:environment:${props.stage}`,
+								],
+							},
+						],
+					},
+				],
+			},
+		);
+
+		// Outside the /app/ path on purpose: it cannot modify itself.
+		const ciDeployRole = new IamRole(this, "ci_deploy_role", {
+			name: `${props.stage}-github-ci-deploy`,
+			assumeRolePolicy: ciDeployTrust.json,
+			maxSessionDuration: 3600,
+		});
+
+		const powerUser = new DataAwsIamPolicy(this, "power_user_access", {
+			name: "PowerUserAccess",
+		});
+
+		new IamRolePolicyAttachment(this, "ci_deploy_power_user", {
+			role: ciDeployRole.name,
+			policyArn: powerUser.arn,
+		});
+
+		const appRoles = `arn:aws:iam::${caller.accountId}:role/app/*`;
+
+		const ciDeployIam = new DataAwsIamPolicyDocument(this, "ci_deploy_iam", {
+			statement: [
+				{
+					sid: "ManageAppRolesOnly",
+					effect: "Allow",
+					actions: [
+						"iam:CreateRole",
+						"iam:DeleteRole",
+						"iam:GetRole",
+						"iam:UpdateRole",
+						"iam:TagRole",
+						"iam:UntagRole",
+						"iam:UpdateAssumeRolePolicy",
+						"iam:PutRolePolicy",
+						"iam:GetRolePolicy",
+						"iam:DeleteRolePolicy",
+						"iam:ListRolePolicies",
+						"iam:ListAttachedRolePolicies",
+						"iam:ListInstanceProfilesForRole",
+					],
+					resources: [appRoles],
+				},
+				{
+					sid: "PassAppRolesToLambdaOnly",
+					effect: "Allow",
+					actions: ["iam:PassRole"],
+					resources: [appRoles],
+					condition: [
+						{
+							test: "StringEquals",
+							variable: "iam:PassedToService",
+							values: ["lambda.amazonaws.com"],
+						},
+					],
+				},
+			],
+		});
+
+		new IamRolePolicy(this, "ci_deploy_iam_policy", {
+			role: ciDeployRole.id,
+			policy: ciDeployIam.json,
+		});
+
+		new TerraformOutput(this, "ci_deploy_role_arn", {
+			value: ciDeployRole.arn,
+		});
+
 		new TerraformOutput(this, "github_oidc_provider_arn", {
 			value: githubOidc.arn,
 		});

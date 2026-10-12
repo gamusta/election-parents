@@ -59,7 +59,11 @@ export class LambdaHandler extends Construct {
 		});
 
 		this.role = new IamRole(this, "role", {
-			name: functionName,
+			// Distinct from functionName: create_before_destroy (inherited from the
+			// API deployment) needs old and new role names to coexist on replacement.
+			name: `${functionName}-exec`,
+			// IAM path scopes what the CI deploy role may manage (ADR-0018).
+			path: "/app/",
 			assumeRolePolicy: trust.json,
 		});
 
