@@ -15,7 +15,7 @@ Une école crée une élection et invite des parents (magic link usage unique) ;
 ## Stack
 - Node 24 (runtime Lambda `nodejs24.x`), TypeScript strict, ESM. Lambdas **ARM64**, bundling esbuild. Le poste de dev est un Mac Intel : signaler toute dépendance avec binaire natif.
 - Backend : Hono + Zod.
-- AWS (eu-west-1) : API Gateway REST, Lambda, DynamoDB single-table (+ Streams), SQS, SNS, SES, EventBridge (bus, Pipes, Scheduler), Step Functions, ECS Fargate x86_64 + ECR (image `linux/amd64` : poste Mac Intel, pas d'émulation), S3, CloudWatch. Hors périmètre actuel : Cognito, authorizer, KMS JWT, VPC sur mesure, CloudFront.
+- AWS (eu-west-1) : API Gateway REST, Lambda, DynamoDB single-table (+ Streams), SQS, SNS, SES, EventBridge (bus, Pipes, Scheduler), Step Functions, ECS Fargate x86_64 + ECR (image `linux/amd64` : poste Mac Intel, pas d'émulation), S3, CloudFront (front + `/api`, ADR-0018), CloudWatch. Hors périmètre actuel : Cognito, authorizer, KMS JWT, VPC sur mesure.
 - Front : React + TanStack (Router, Query, Form), Zustand, shadcn/ui.
 - Tests : Vitest ; BDD en Gherkin (`*.feature`) via `@amiceli/vitest-cucumber`.
 - IaC : cdktn (TypeScript → Terraform). Versions d'outils épinglées dans `mise.toml`.
@@ -24,7 +24,7 @@ Une école crée une élection et invite des parents (magic link usage unique) ;
 ## Structure
 ```
 apps/api          Handlers Lambda (Hono) — un dossier par handler
-apps/web          Front (local uniquement, appelle l'API déployée ; CORS sur API Gateway)
+apps/web          Front : S3 privé + CloudFront, API sous `/api` (même origine) ; en local, appelle l'API déployée (CORS)
 packages/contracts Schémas Zod (contrat HTTP) api ↔ web
 packages/kernel   Shared kernel DDD (Result ; DomainEvent et AggregateRoot à venir)
 packages/<ctx>    Bounded contexts (voting, plus tard school, reporting) : domain / application / infrastructure
