@@ -1,5 +1,7 @@
 # Plan — prépa test archi PayFit (7 jours × 8 h)
 
+> ⚠️ Plan terminé (oct. 2026). Plan en cours : [plan-platform.md](plan-platform.md).
+
 Objectif : savoir **concevoir, justifier et diagnostiquer** une architecture DDD + event-driven sur AWS, en anglais, au tableau.
 Test PayFit : fin de semaine prochaine, design au tableau + un peu de live coding. Sujets annoncés : **from scratch, SQS, event-driven, webhooks / double paiement**. ECS gardé (autres entretiens tech).
 Calendrier : J1 = sam. 10/10 → J5 = mer. 14/10 (10 demi-journées en rotation) ; J6 = jeu. 15/10 (tampon + webhooks) ; J7 = ven. 16/10 (simulations whiteboard). Outil de dessin : Excalidraw.

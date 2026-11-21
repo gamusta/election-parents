@@ -37,6 +37,16 @@ describeFeature(feature, ({ Background, Scenario }) => {
 			error: result.ok ? undefined : String(result.error),
 		};
 	};
+	// Setup steps drain their events: Then steps only see the When step's.
+	const opened = (now: Date) => {
+		unwrap(election.open(now));
+		election.pullEvents();
+	};
+	const closed = (now: Date) => {
+		unwrap(election.close(now));
+		election.pullEvents();
+	};
+	const recordedTypes = () => election.pullEvents().map((e) => e.type);
 	const addLists = (count: number) => {
 		for (let n = 1; n <= count; n++) unwrap(election.addList(candidateList(n)));
 	};
@@ -52,7 +62,7 @@ describeFeature(feature, ({ Background, Scenario }) => {
 
 	Scenario(
 		"Opening a draft election with lists during its period",
-		({ Given, When, Then }) => {
+		({ Given, When, Then, And }) => {
 			Given("the election has 2 candidate lists", () => addLists(2));
 			When("the organiser opens it on 2026-10-16 10:00", () =>
 				run(election.open(at["2026-10-16 10:00"])),
@@ -61,6 +71,9 @@ describeFeature(feature, ({ Background, Scenario }) => {
 				expect(outcome.ok).toBe(true);
 				expect(election.status).toBe("open");
 			});
+			And('an "ElectionOpened" event is recorded', () =>
+				expect(recordedTypes()).toEqual(["ElectionOpened"]),
+			);
 		},
 	);
 
@@ -76,6 +89,7 @@ describeFeature(feature, ({ Background, Scenario }) => {
 			And("the election is still a draft", () =>
 				expect(election.status).toBe("draft"),
 			);
+			And("no event is recorded", () => expect(recordedTypes()).toEqual([]));
 		},
 	);
 
@@ -98,7 +112,7 @@ describeFeature(feature, ({ Background, Scenario }) => {
 			Given("the election has 2 candidate lists", () => addLists(2));
 			// Past-tense steps are setup: unwrap so a broken setup fails loudly.
 			And("the organiser opened it on 2026-10-16 10:00", () =>
-				unwrap(election.open(at["2026-10-16 10:00"])),
+				opened(at["2026-10-16 10:00"]),
 			);
 			When("the organiser adds a candidate list", () =>
 				run(election.addList(candidateList(3))),
@@ -115,7 +129,7 @@ describeFeature(feature, ({ Background, Scenario }) => {
 		({ Given, And, When, Then }) => {
 			Given("the election has 2 candidate lists", () => addLists(2));
 			And("the organiser opened it on 2026-10-16 10:00", () =>
-				unwrap(election.open(at["2026-10-16 10:00"])),
+				opened(at["2026-10-16 10:00"]),
 			);
 			When("the organiser closes it on 2026-10-18 00:00", () =>
 				run(election.close(at["2026-10-18 00:00"])),
@@ -124,6 +138,9 @@ describeFeature(feature, ({ Background, Scenario }) => {
 				expect(outcome.ok).toBe(true);
 				expect(election.status).toBe("closed");
 			});
+			And('an "ElectionClosed" event is recorded', () =>
+				expect(recordedTypes()).toEqual(["ElectionClosed"]),
+			);
 		},
 	);
 
@@ -132,7 +149,7 @@ describeFeature(feature, ({ Background, Scenario }) => {
 		({ Given, And, When, Then }) => {
 			Given("the election has 2 candidate lists", () => addLists(2));
 			And("the organiser opened it on 2026-10-16 10:00", () =>
-				unwrap(election.open(at["2026-10-16 10:00"])),
+				opened(at["2026-10-16 10:00"]),
 			);
 			When("the organiser closes it on 2026-10-16 12:00", () =>
 				run(election.close(at["2026-10-16 12:00"])),
@@ -141,6 +158,7 @@ describeFeature(feature, ({ Background, Scenario }) => {
 				expect(outcome.error).toBe("voting_period_not_ended");
 				expect(election.status).toBe("open");
 			});
+			And("no event is recorded", () => expect(recordedTypes()).toEqual([]));
 		},
 	);
 
@@ -149,10 +167,10 @@ describeFeature(feature, ({ Background, Scenario }) => {
 		({ Given, And, When, Then }) => {
 			Given("the election has 2 candidate lists", () => addLists(2));
 			And("the organiser opened it on 2026-10-16 10:00", () =>
-				unwrap(election.open(at["2026-10-16 10:00"])),
+				opened(at["2026-10-16 10:00"]),
 			);
 			And("the organiser closed it on 2026-10-18 00:00", () =>
-				unwrap(election.close(at["2026-10-18 00:00"])),
+				closed(at["2026-10-18 00:00"]),
 			);
 			When("the organiser opens it on 2026-10-18 01:00", () =>
 				run(election.open(at["2026-10-18 01:00"])),
@@ -161,6 +179,7 @@ describeFeature(feature, ({ Background, Scenario }) => {
 				expect(outcome.error).toBe("election_not_draft");
 				expect(election.status).toBe("closed");
 			});
+			And("no event is recorded", () => expect(recordedTypes()).toEqual([]));
 		},
 	);
 });

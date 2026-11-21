@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "@election/kernel";
+import { AggregateRoot, err, ok, type Result } from "@election/kernel";
 import { type CandidateList, normalizeListName } from "./candidate-list";
 import type { CandidateListId } from "./candidate-list-id";
 import type {
@@ -7,6 +7,7 @@ import type {
 	EditListsError,
 	OpenElectionError,
 } from "./election-errors";
+import type { ElectionEvent } from "./election-events";
 import type { ElectionId } from "./election-id";
 import type { ElectionPeriod } from "./election-period";
 import type { SeatCount } from "./seat-count";
@@ -35,15 +36,18 @@ const nameKey = (name: string): string =>
  * - opening needs at least one list and happens inside the period;
  * - closing happens once the period has ended;
  * - status only moves draft → open → closed.
+ * Records ElectionOpened / ElectionClosed on successful transitions only.
  */
-export class Election {
+export class Election extends AggregateRoot<ElectionEvent> {
 	private constructor(
 		readonly id: ElectionId,
 		readonly period: ElectionPeriod,
 		readonly seats: SeatCount,
 		private currentStatus: ElectionStatus,
 		private readonly currentLists: CandidateList[],
-	) {}
+	) {
+		super();
+	}
 
 	static create(
 		props: {
@@ -104,6 +108,12 @@ export class Election {
 		if (this.currentLists.length === 0) return err("no_candidate_lists");
 		if (!this.period.isOpenAt(now)) return err("outside_voting_period");
 		this.currentStatus = "open";
+		this.record({
+			type: "ElectionOpened",
+			version: 1,
+			occurredAt: now,
+			electionId: this.id.value,
+		});
 		return ok();
 	}
 
@@ -111,6 +121,12 @@ export class Election {
 		if (this.currentStatus !== "open") return err("election_not_open");
 		if (!this.period.hasEndedAt(now)) return err("voting_period_not_ended");
 		this.currentStatus = "closed";
+		this.record({
+			type: "ElectionClosed",
+			version: 1,
+			occurredAt: now,
+			electionId: this.id.value,
+		});
 		return ok();
 	}
 
