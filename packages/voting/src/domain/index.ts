@@ -7,3 +7,4 @@ export * from "./election/election-events";
 export * from "./election/election-id";
 export * from "./election/election-period";
 export * from "./election/seat-count";
+export * from "./results/seat-allocation";
