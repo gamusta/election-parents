@@ -5,6 +5,7 @@ Projet d'apprentissage AWS serverless + IaC. Objectif : « savoir reconstruire e
 Une école crée une élection et invite des parents (magic link usage unique) ; chaque parent vote une fois, vote secret ; dépouillement automatique à la clôture (représentation proportionnelle au plus fort reste).
 
 ## Répartition des rôles (IMPORTANT)
+> **Depuis le 2026-11-21** : plan et mode de travail en cours dans `docs/plan-platform.md` (PR par PR : l'IA donne chemin + contenu complet + finalité, le développeur crée les fichiers et déploie). Il prime sur les points ci-dessous.
 - **Le développeur code lui-même**, pas à pas, les parties nouvelles : domaine DDD (agrégats, domain events, repositories), SQS/SNS/EventBridge/Streams/Step Functions/ECS, idempotence, et tout `infra/`. L'IA guide : étapes, points de vigilance, revue précise. **Pas de code complet sauf demande explicite.**
 - **Init from scratch** (`apps/web`, nouveau package de contexte + son handler, worker ECS) : faite par le développeur, l'IA relit ensuite.
 - L'IA génère le boilerplate : handlers simples, tests de base, écrans du front une fois l'init faite, et la doc.
