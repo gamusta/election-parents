@@ -50,3 +50,9 @@ export const LabSleepMsSchema = z
 	.transform(Number)
 	.pipe(z.number().int().min(0).max(40_000));
 export type LabSleepMs = z.infer<typeof LabSleepMsSchema>;
+
+// Step Functions task input (close-election workflow): identifiers only.
+export const ElectionTaskSchema = z.strictObject({
+	electionId: ElectionIdSchema,
+});
+export type ElectionTask = z.infer<typeof ElectionTaskSchema>;
