@@ -76,7 +76,10 @@
 			}
 		},
 		{
-			"includes": ["packages/*/src/application/**"],
+			"includes": [
+				"packages/*/src/application/**",
+				"!packages/*/src/application/**/*.test.ts"
+			],
 			"linter": {
 				"rules": {
 					"style": {
