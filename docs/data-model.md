@@ -18,6 +18,7 @@ Volume de référence : une école ≈ 200 à 2 000 électeurs, quelques électi
 | AP8 | Écrire `BALLOT#uuid` dans la même transaction | `cast-vote` | E | 1 / votant | Forte : atomique avec AP7 | — |
 | AP9 | Lire tous les bulletins d'une élection | `tally` (clôture, J5) | L | 1 fois, N bulletins | Forte : `Query` `ConsistentRead` sur la table, après `closed` (un GSI pourrait omettre les derniers bulletins) | ❌ |
 | AP10 | Compter inscrits et votants | `get-turnout` (affichage), `tally` (procès-verbal) | L | Affichage : fréquent si participation en direct | Affichage : à terme OK. Procès-verbal : exact, lu après `closed` | ✅ affichage seulement |
+| AP11 | Écrire les résultats une seule fois | `tally-votes` (Step Functions) | E | 1 / élection | Forte : put conditionnel `attribute_not_exists(pk)`, un retry garde la 1ʳᵉ écriture | — |
 
 À noter :
 - AP4 exige `schoolId` et la date d'ouverture sur l'élection : l'agrégat `Election` n'a pas encore `schoolId` (à ajouter côté domaine).
@@ -33,6 +34,7 @@ Clés génériques `pk` / `sk` (string). Un seul GSI : `gsi1` (`gsi1pk` / `gsi1s
 | ParentLink (mapping ACL) | `ELECTION#<electionId>` | `PARENT#<parentId>` | `voterId` | AP5, AP6 |
 | Voter (émargement) | `ELECTION#<electionId>` | `VOTER#<voterId>` | `status` (`REGISTERED` \| `VOTED`), `expiresAt` | AP5, AP7, AP10 |
 | Ballot | `ELECTION#<electionId>#BALLOTS` | `BALLOT#<uuid v4>` | `listId`, `expiresAt` | AP8, AP9, AP10 |
+| Results | `ELECTION#<electionId>` | `RESULTS` | `seats`, `totalVotes`, `lists` (`listId`, `votes`, `seats`) | AP11 |
 
 GSI `gsi1` (AP4) : `gsi1pk = SCHOOL#<schoolId>`, `gsi1sk = <opensAt ISO 8601>#<electionId>`, projection `ALL`. Seuls les items Election portent ces attributs : index sparse, donc peu coûteux.
 

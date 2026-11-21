@@ -29,6 +29,9 @@ importers:
       '@election/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@election/voting':
+        specifier: workspace:*
+        version: link:../../packages/voting
       '@hono/aws-lambda':
         specifier: ^1.0.0
         version: 1.0.0(hono@4.13.13)
@@ -53,7 +56,7 @@ importers:
         version: 7.0.2
       vitest:
         specifier: ^5.0.3
-        version: 5.0.3(@types/node@24.19.1)(vite@8.3.3(@types/node@24.19.1)(esbuild@0.28.2)(tsx@4.23.15))
+        version: 5.0.3(@types/node@24.19.1)(jsdom@30.1.2)(vite@8.3.3(@types/node@24.19.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
   apps/web:
     dependencies:
@@ -156,6 +159,12 @@ importers:
 
   packages/voting:
     dependencies:
+      '@aws-sdk/client-dynamodb':
+        specifier: ^3.1149.0
+        version: 3.1149.0
+      '@aws-sdk/lib-dynamodb':
+        specifier: ^3.1149.0
+        version: 3.1149.0(@aws-sdk/client-dynamodb@3.1149.0)
       '@election/kernel':
         specifier: workspace:*
         version: link:../kernel
@@ -165,13 +174,13 @@ importers:
     devDependencies:
       '@amiceli/vitest-cucumber':
         specifier: ^8.0.0
-        version: 8.0.0(vitest@5.0.3(@types/node@24.19.1)(vite@8.3.3(@types/node@24.19.1)(esbuild@0.28.2)(tsx@4.23.15)))
+        version: 8.0.0(vitest@5.0.3(@types/node@24.19.1)(jsdom@30.1.2)(vite@8.3.3(@types/node@24.19.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)))
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
       vitest:
         specifier: ^5.0.3
-        version: 5.0.3(@types/node@24.19.1)(vite@8.3.3(@types/node@24.19.1)(esbuild@0.28.2)(tsx@4.23.15))
+        version: 5.0.3(@types/node@24.19.1)(jsdom@30.1.2)(vite@8.3.3(@types/node@24.19.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
 packages:
 
@@ -2638,13 +2647,13 @@ snapshots:
 
   '@adobe/css-tools@4.5.0': {}
 
-  '@amiceli/vitest-cucumber@8.0.0(vitest@5.0.3(@types/node@24.19.1)(vite@8.3.3(@types/node@24.19.1)(esbuild@0.28.2)(tsx@4.23.15)))':
+  '@amiceli/vitest-cucumber@8.0.0(vitest@5.0.3(@types/node@24.19.1)(jsdom@30.1.2)(vite@8.3.3(@types/node@24.19.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)))':
     dependencies:
       callsites: 4.2.0
       minimist: 1.2.8
       parsecurrency: 1.1.1
       ts-morph: 28.0.0
-      vitest: 5.0.3(@types/node@24.19.1)(vite@8.3.3(@types/node@24.19.1)(esbuild@0.28.2)(tsx@4.23.15))
+      vitest: 5.0.3(@types/node@24.19.1)(jsdom@30.1.2)(vite@8.3.3(@types/node@24.19.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
   '@asamuzakjp/css-color@7.1.5':
     dependencies:

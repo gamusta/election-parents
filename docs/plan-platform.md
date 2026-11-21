@@ -21,8 +21,8 @@ Critère : pour chaque sujet, **2 alternatives + 1 limite chiffrée**, justifié
 | 10 | Contraintes GxP | piste d'audit, change control, environnement validé, séparation des rôles, rétention des logs, preuve de déploiement en CI |
 
 ## Mode de travail (PR par PR)
-1. L'IA donne pour chaque PR : **besoin / finalité** (et le sujet travaillé), puis **chaque fichier** : chemin + contenu complet + rôle, puis la **vérification** et **2–3 questions** ou une chose à casser.
-2. Le développeur crée les fichiers (`infra/` compris), lance les tests, **déploie lui-même**.
+1. **Code métier et applicatif** (domaine, use cases, adapters, handlers, tests) : l'IA l'écrit, le teste, commite et ouvre la PR, puis résume en quelques lignes ce qui compte pour le sujet cible.
+2. **Parties cibles** (`infra/`, CI, ADR à défendre) : l'IA donne **besoin / finalité** et compromis, puis **chaque fichier** (chemin + contenu complet + rôle), la **vérification**, les étapes **déployer → observer → casser** et 2–3 questions. Le développeur écrit ces fichiers et **déploie lui-même**.
 3. Il dit « fait » → l'IA relit, commite, ouvre la PR.
 4. L'IA ne lance jamais `deploy`, `apply`, `destroy`, ni de commande AWS qui modifie une ressource (lecture seule uniquement).
 
@@ -32,12 +32,12 @@ Fiche chiffres (0:45) · clôture Scheduler → Step Functions → Lambdas + 3 p
 
 | PR | Contenu | Sujet | État |
 |---|---|---|---|
-| 4 | `/api/*` CloudFront → API Gateway | — | ouverte (déjà déployée) |
-| 5 | `Election` enregistre `ElectionOpened` / `ElectionClosed` | domain events | ouverte |
-| 6 | `docs/async-cheatsheet.md` + ce plan | #1 chiffres | en cours |
-| 7 | Domaine : `SeatAllocator` (plus fort reste), `ElectionResults` | modélisation | à faire |
-| 8 | Application : `CloseElection`, `TallyVotes`, port `ElectionRepository` + adapter DynamoDB (transition conditionnelle) | idempotence par la base | à faire |
-| 9 | Handlers `close-election`, `tally-votes` (appelés par Step Functions, pas HTTP) | ADR-0017 | à faire |
+| 4 | `/api/*` CloudFront → API Gateway | — | ✅ mergée |
+| 5 | `Election` enregistre `ElectionOpened` / `ElectionClosed` | domain events | ✅ mergée |
+| 6 | `docs/async-cheatsheet.md` + ce plan | #1 chiffres | ✅ mergée |
+| 7 | Domaine : `allocateSeats` (plus fort reste), `ElectionResults` | modélisation | PR #7 ouverte |
+| 8 | Application : `closeElection`, `tallyVotes`, ports + fakes en mémoire | idempotence par la base | PR #8 ouverte (empilée sur #7) |
+| 9 | Adapters DynamoDB + handlers `close-election`, `tally-votes` (appelés par Step Functions, `TaskError.name` = code pour Retry/Catch) | ADR-0017 | PR ouverte (empilée sur #8) |
 | 10 | Infra : machine à états Standard (Retry/Catch), Scheduler, IAM, alarme + ADR-0019 | #1, #4 | à faire |
 | 11 | Pannes : timeout, double démarrage, erreur sans Catch → `diagnostic.md` | diagnostic | à faire |
 | 12 | Variante SQS + Lambda : consumer idempotent, `ReportBatchItemFailures`, DLQ + alarme | #1 | à faire |
@@ -56,4 +56,5 @@ Multi-comptes + réseau : ADR + schéma Excalidraw (2:30) · #8 plateforme multi
 
 ## Journal
 - **2026-11-21** — Reprise. PR 4 et 5 ouvertes. Priorités et mode PR par PR décidés. Fiche async écrite.
-  👉 **Prochaine étape** : merger PR 4 et 5 (squash), commiter PR 6, puis contenu de la PR 7.
+- **2026-11-21 (suite)** — PR 4, 5, 6 mergées. PR 7, 8, 9 (code métier, écrit par l'IA) ouvertes et empilées. Décision : l'IA écrit tout le code métier, le développeur se concentre sur les parties cibles.
+  👉 **Prochaine étape** : merger 7 → 8 → 9 dans l'ordre, puis PR 10 (infra Step Functions, écrite par le développeur, guidée).
