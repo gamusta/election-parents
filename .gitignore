@@ -23,6 +23,9 @@ crash.*.log
 .env
 .env.*
 !.env.example
+!apps/web/.env.production
+# Public build config (no secrets): VITE_API_URL=/api.
+!apps/web/.env.production
 mise.local.toml
 
 # OS / éditeurs

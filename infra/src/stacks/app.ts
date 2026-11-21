@@ -9,6 +9,7 @@ import { ApiGatewayResource } from "@cdktn/provider-aws/lib/api-gateway-resource
 import { ApiGatewayRestApi } from "@cdktn/provider-aws/lib/api-gateway-rest-api";
 import { ApiGatewayStage } from "@cdktn/provider-aws/lib/api-gateway-stage";
 import { CloudwatchLogGroup } from "@cdktn/provider-aws/lib/cloudwatch-log-group";
+import { DataAwsRegion } from "@cdktn/provider-aws/lib/data-aws-region";
 import type { DynamodbTable } from "@cdktn/provider-aws/lib/dynamodb-table";
 import { LambdaPermission } from "@cdktn/provider-aws/lib/lambda-permission";
 import { AwsProvider } from "@cdktn/provider-aws/lib/provider";
@@ -261,7 +262,12 @@ export class AppStack extends TerraformStack {
 			);
 		}
 
-		const web = new WebDistribution(this, "web", { stage: props.stage });
+		const region = new DataAwsRegion(this, "region");
+		const web = new WebDistribution(this, "web", {
+			stage: props.stage,
+			apiDomainName: `${api.id}.execute-api.${region.region}.amazonaws.com`,
+			apiStageName: apiStage.stageName,
+		});
 
 		new TerraformOutput(this, "web_bucket_name", { value: web.bucket.bucket });
 		new TerraformOutput(this, "web_distribution_id", {
